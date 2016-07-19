@@ -93,6 +93,11 @@ module powerbi.visuals {
                             description: 'Specify the font color of the axis text.',
                             type: { fill: { solid: { color: true } } },
                             displayName: 'Text Color'
+                        },
+                        lineColor: {
+                            description: 'Specify the color of the axes line.',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Line Color'
                         }
                     }
                 },
@@ -215,7 +220,7 @@ module powerbi.visuals {
                 var sum = 0;
                 return {
                     seriesValue: v.source.groupName, 
-                    identity: SelectionIdBuilder.builder().withSeries(categoryValues, v).createSelectionId(),
+                    identity: SelectionIdBuilder.builder().withCategory(categoryValues, v).createSelectionId(),
                     values: v.values.map(function(v1, i){
                         var categoryColumn = categoryDataView.categories[0];
                         var objects = categoryColumn.objects && categoryColumn.objects[i];
@@ -361,12 +366,13 @@ module powerbi.visuals {
             var yAxisColor = this.GetPropertyColor('secondyaxisproperties', 'lineColor', DivergingStackedBar.DefaultAxisTextColor);
             
             svg.append('g')
-                .attr('class', 'y axis')
+                .attr('class', 'y2 axis')
             .append('line')
                 .attr('x1', x(0))
                 .attr('x2', x(0))
                 .attr('y2', height)
-                .style('fill', yAxisColor);
+                .style('stroke', yAxisColor)
+                .style('shape-rendering', 'crispEdges');
 
             var startp = svg.append('g').attr('class', 'legendbox').attr('id', 'mylegendbox');
             var legend = startp.selectAll('.legend')
@@ -401,14 +407,11 @@ module powerbi.visuals {
                     return translate;
                 });
 
+            var axisColor = this.GetPropertyColor('axisproperties', 'lineColor', DivergingStackedBar.DefaultAxisTextColor);
+
             d3.selectAll('.axis path')
                 .style('fill', 'none')
-                .style('stroke', '#000')
-                .style('shape-rendering', 'crispEdges');
-
-            d3.selectAll('.axis line')
-                .style('fill', 'none')
-                .style('stroke', '#000')
+                .style('stroke', axisColor)
                 .style('shape-rendering', 'crispEdges');
         }
         
@@ -427,7 +430,8 @@ module powerbi.visuals {
                         selector: null,
                         properties: {
                             textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultAxisTextColor),
-                            fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultAxisFontSize)
+                            fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultAxisFontSize),
+                            lineColor: this.GetPropertyColor(objectName, 'lineColor', DivergingStackedBar.DefaultAxisTextColor),
                         }
                     };
                     enumeration.pushInstance(properties);
@@ -464,9 +468,7 @@ module powerbi.visuals {
                             displayName: s.categoryValue,
                             selector: ColorHelper.normalizeSelector(s.identity.getSelector()),
                             properties: {
-                                fill: {
-                                    solid: { color: s.color }
-                                }
+                                fill: { solid: { color: s.color } }
                             },
                         }
                         enumeration.pushInstance(properties);
