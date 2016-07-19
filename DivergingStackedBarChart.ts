@@ -336,7 +336,6 @@ module powerbi.visuals {
             bars.append('text')
                 .attr('x', function(d) { return x(d.x0); })
                 .attr('y', y.rangeBand()/2)
-                .attr('dy', '0.5em')
                 .attr('dx', '0.5em')
                 .style('text-anchor', 'begin')
                 .style('font-size', barFontSize)
@@ -402,6 +401,13 @@ module powerbi.visuals {
                 .style('fill', 'none')
                 .style('stroke', axisColor)
                 .style('shape-rendering', 'crispEdges');
+
+            d3.selectAll('.subbar').each(function(s){
+                var rHeight = this.childNodes[0].getBBox().height; 
+                var text = this.childNodes[1];
+                var tHeight = text.getBBox().height; 
+                d3.select(text).attr('y', rHeight/2 + tHeight/4);
+            });
         }
         
         // This function retruns the values to be displayed in the property pane for each object.
