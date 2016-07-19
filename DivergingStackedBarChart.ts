@@ -37,7 +37,7 @@ module powerbi.visuals {
             ],
             dataViewMappings: [{
                 conditions: [
-                    { 'Category': { max: 5 }, 'Series': { max: 1 }, 'Value': { max: 1 }, 'SortBy': { max: 1 } }
+                    { 'Category': { max: 1 }, 'Series': { max: 1 }, 'Value': { max: 1 }, 'SortBy': { max: 1 } }
                 ], 
                 categorical: {
                     categories: {
@@ -48,27 +48,12 @@ module powerbi.visuals {
                         group: {
                             by: 'Series',
                             select: [
-                                { bind: { to: 'Value' } }
+                                { bind: { to: 'Value' } },
+                                { bind: { to: 'SortBy' } },
                             ],
                             dataReductionAlgorithm: { top: { } }
                         }
-                    }
-                }
-            },
-            {
-                conditions: [
-                    { 'Category': { max: 5 }, 'Series': { max: 1 }, 'Value': { max: 1 }, 'SortBy': { max: 1 } }
-                ], 
-                categorical: {
-                    categories: {
-                        for: { in: 'Category' },
-                        dataReductionAlgorithm: { top: {} }
                     },
-                    values: {
-                        select: [
-                            { bind: { to: 'SortBy' } }
-                        ]
-                    }
                 }
             }],
             drilldown: { roles: ['Category'] },
@@ -213,7 +198,7 @@ module powerbi.visuals {
 
         private static converter(dataView: DataView, sortOrder: string, colors){
             var categoryDataView = dataView.categorical;
-            var categoryValues = categoryDataView.values;
+            var categoryValues = categoryDataView.values.grouped();
             var levels = categoryDataView.categories[0].values;
             var categoryColumn = categoryDataView.categories[0];
             var colorScale = colors.getNewColorScale();
@@ -221,9 +206,9 @@ module powerbi.visuals {
             return categoryValues.map(function(v){
                 var sum = 0;
                 return {
-                    seriesValue: v.source.groupName, 
+                    seriesValue: v.name, 
                     identity: SelectionIdBuilder.builder().withSeries(categoryValues, v).createSelectionId(), 
-                    values: v.values.map(function(v1, i){
+                    values: v.values[0].values.map(function(v1, i){
                         var level = levels[i];
                         var objects = categoryColumn.objects && categoryColumn.objects[i];
                         var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, level)
@@ -233,14 +218,15 @@ module powerbi.visuals {
                             identity: SelectionIdBuilder.builder().withCategory(categoryColumn, i).createSelectionId(),
                             value: v1,
                             color: color,
-                            categoryValue: level
+                            categoryValue: level,
+                            sortKey: (v.values.length > 1) && v.values[1].values[i] || 0
                         }
                     })
                     .map(function(d){
                         d.percentage = d.value*100/sum;
                         return d;
                     })
-                    .sort(function(x,y){ return (sortOrder === SortOrderEnum.ASCENDING) && (y.categoryValue - x.categoryValue) || (x.categoryValue - y.categoryValue) })
+                    .sort(function(x,y){ return (sortOrder === SortOrderEnum.ASCENDING) && (y.sortKey - x.sortKey) || (x.sortKey - y.sortKey) })
                 }
             });
         }
@@ -429,11 +415,11 @@ module powerbi.visuals {
                 case 'axisproperties':
                     var properties: VisualObjectInstance = {
                         objectName: objectName,
-                        displayName: 'Axis Properties',
+                        displayName: 'Axis',
                         selector: null,
                         properties: {
-                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultAxisTextColor),
                             fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultAxisFontSize),
+                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultAxisTextColor),
                             lineColor: this.GetPropertyColor(objectName, 'lineColor', DivergingStackedBar.DefaultAxisTextColor),
                         }
                     };
@@ -443,11 +429,11 @@ module powerbi.visuals {
                 case 'legendproperties':
                     var properties: VisualObjectInstance = {
                         objectName: objectName,
-                        displayName: 'Legend Properties',
+                        displayName: 'Legend',
                         selector: null,
                         properties: {
-                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultAxisTextColor),
-                            fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultAxisFontSize)
+                            fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultAxisFontSize),
+                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultAxisTextColor)
                         }
                     };
                     enumeration.pushInstance(properties);
@@ -456,7 +442,7 @@ module powerbi.visuals {
                 case 'barproperties':
                     var properties: VisualObjectInstance = {
                         objectName: objectName,
-                        displayName: 'Bar Properties',
+                        displayName: 'Bar',
                         selector: null,
                         properties: {
                             fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultBarFontSize),
@@ -485,7 +471,7 @@ module powerbi.visuals {
                         displayName: 'Value Sort',
                         selector: null,
                         properties: {
-                            valueSortOrderDefault: this.GetPropertyColor(objectName, 'valueSortOrderDefault', DivergingStackedBar.ValueDefaultSort),
+                            valueSortOrderDefault: this.GetProperty(objectName, 'valueSortOrderDefault', DivergingStackedBar.ValueDefaultSort),
                         }
                     };
                     enumeration.pushInstance(properties);
