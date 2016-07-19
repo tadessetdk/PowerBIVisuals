@@ -215,23 +215,25 @@ module powerbi.visuals {
             var categoryDataView = dataView.categorical;
             var categoryValues = categoryDataView.values;
             var levels = categoryDataView.categories[0].values;
+            var categoryColumn = categoryDataView.categories[0];
             var colorScale = colors.getNewColorScale();
+            var colorHelper = new ColorHelper(colors, { objectName: 'barproperties', propertyName: 'fill' });
             return categoryValues.map(function(v){
                 var sum = 0;
                 return {
                     seriesValue: v.source.groupName, 
-                    identity: SelectionIdBuilder.builder().withCategory(categoryValues, v).createSelectionId(),
+                    identity: SelectionIdBuilder.builder().withSeries(categoryValues, v).createSelectionId(), 
                     values: v.values.map(function(v1, i){
-                        var categoryColumn = categoryDataView.categories[0];
+                        var level = levels[i];
                         var objects = categoryColumn.objects && categoryColumn.objects[i];
-                        var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, v1)
-                                    || colorScale.getColor((levels[i])).value;
+                        var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, level)
+                                    || colorScale.getColor(level).value;
                         sum += v1;
                         return { 
-                            identity: SelectionIdBuilder.builder().withSeries(categoryValues, v1).createSelectionId(), 
+                            identity: SelectionIdBuilder.builder().withCategory(categoryColumn, i).createSelectionId(),
                             value: v1,
                             color: color,
-                            categoryValue: levels[i]
+                            categoryValue: level
                         }
                     })
                     .map(function(d){
@@ -371,6 +373,7 @@ module powerbi.visuals {
                 .attr('x1', x(0))
                 .attr('x2', x(0))
                 .attr('y2', height)
+                .style('fill', 'none')
                 .style('stroke', yAxisColor)
                 .style('shape-rendering', 'crispEdges');
 
