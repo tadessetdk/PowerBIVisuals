@@ -177,7 +177,7 @@ module powerbi.visuals {
            
             var dataView = options.dataViews[0];
             this.dataView = dataView;
-            var sortOrder = this.getSortOrder();
+            var sortOrder = this.GetProperty('valuesortproperties', 'valueSortOrderDefault', DivergingStackedBar.ValueDefaultSort);
             var data = DivergingStackedBar.converter(dataView, sortOrder, this.colors);
             var viewport = options.viewport;
 
@@ -189,7 +189,6 @@ module powerbi.visuals {
             var mainGroup = this.svg
                 .attr('width', viewport.width)
                 .attr('height', viewport.height)
-                .attr('id', 'd3-plot')
             .append('g')
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
@@ -231,24 +230,6 @@ module powerbi.visuals {
                     .sort(function(x,y){ return (sortOrder === SortOrderEnum.ASCENDING) && (y.sortKey - x.sortKey) || (x.sortKey - y.sortKey) })
                 }
             });
-        }
-        
-        private getSortOrder(){
-            //we need to look at the sort property to see whether we should do ascending or descending
-            var sortOrder = DivergingStackedBar.ValueDefaultSort;
-            if (this.dataView) {
-                var objects = this.dataView.metadata.objects;
-                if (objects) {
-                    var groupProperty = objects['valuesortproperties'];
-                    if (groupProperty) {
-                        var object = <string>groupProperty['valueSortOrderDefault'];
-                        if (object !== undefined)
-                            sortOrder = object;
-                    }
-                }
-            }
-
-            return sortOrder;
         }
 
         private render(dataOptions, svg, width, height) {
