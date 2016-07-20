@@ -336,7 +336,6 @@ module powerbi.visuals {
             bars.append('text')
                 .attr('x', function(d) { return x(d.x0); })
                 .attr('y', y.rangeBand()/2)
-                .attr('dx', '0.5em')
                 .style('text-anchor', 'begin')
                 .style('font-size', barFontSize)
                 .style('fill', barTextColor)
@@ -403,10 +402,17 @@ module powerbi.visuals {
                 .style('shape-rendering', 'crispEdges');
 
             d3.selectAll('.subbar').each(function(s){
-                var rHeight = this.childNodes[0].getBBox().height; 
+				var rect = this.childNodes[0];
+				var rx = parseInt(d3.select(rect).attr('x'));
+                var rBox = rect.getBBox();
+                var rHeight = rBox.height; 
+                var rWidth = rBox.width;
                 var text = this.childNodes[1];
-                var tHeight = text.getBBox().height; 
+                var tBox = text.getBBox();
+                var tHeight = tBox.height; 
+                var tWidth = tBox.width; 
                 d3.select(text).attr('y', rHeight/2 + tHeight/4);
+                d3.select(text).attr('x', rx + rWidth/2 - tWidth/2);
             });
         }
         
