@@ -144,9 +144,11 @@ module powerbi.visuals {
 
         private static VisualClassName = 'DivergingStackedBar';
         private static DefaultAxisFontSize = 9;
-        private static DefaultAxisTextColor = '#000';
-        private static DefaultBarFontSize = 10;
+        private static DefaultAxisTextColor = 'rgb(204, 204, 204)';
+        private static DefaultBarFontSize = 14;
         private static DefaultBarTextColor = '#FFF';
+        private static DefaultLegendTextColor = 'rgb(69, 106, 118)';
+        private static Default2ndYAxixColor = 'rgb(135, 144, 146)';
         private static ValueDefaultSort = 'ASCENDING';
         private static DurationAnimations = 200;
         private static MinOpacity = 0.3;
@@ -349,7 +351,7 @@ module powerbi.visuals {
                 .style('fill', '#F5F5F5')
                 .attr('class', function(d,index) { return index%2==0 ? 'even' : 'uneven'; });
 
-            var yAxisColor = this.GetPropertyColor('secondyaxisproperties', 'lineColor', DivergingStackedBar.DefaultAxisTextColor);
+            var yAxisColor = this.GetPropertyColor('secondyaxisproperties', 'lineColor', DivergingStackedBar.Default2ndYAxixColor);
             
             svg.append('g')
                 .attr('class', 'y2 axis')
@@ -375,7 +377,7 @@ module powerbi.visuals {
                 .style('fill', function(d){ return d.color });
 
             var legendFontSize = this.GetProperty('legendproperties', 'fontSize', DivergingStackedBar.DefaultAxisFontSize).toString() + 'pt';
-            var legendFontColor = this.GetPropertyColor('legendproperties', 'textColor', DivergingStackedBar.DefaultAxisTextColor);
+            var legendFontColor = this.GetPropertyColor('legendproperties', 'textColor', DivergingStackedBar.DefaultLegendTextColor);
 
             legend.append('text')
                 .attr('x', 22)
@@ -445,7 +447,7 @@ module powerbi.visuals {
                         selector: null,
                         properties: {
                             fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBar.DefaultAxisFontSize),
-                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultAxisTextColor)
+                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBar.DefaultLegendTextColor)
                         }
                     };
                     enumeration.pushInstance(properties);
@@ -495,7 +497,7 @@ module powerbi.visuals {
                         displayName: '2nd Y Axis',
                         selector: null,
                         properties: {
-                            lineColor: this.GetPropertyColor(objectName, 'lineColor', DivergingStackedBar.DefaultAxisTextColor),
+                            lineColor: this.GetPropertyColor(objectName, 'lineColor', DivergingStackedBar.Default2ndYAxixColor),
                         }
                     };
                     enumeration.pushInstance(properties);
