@@ -149,7 +149,7 @@ module powerbi.visuals {
         private static DefaultBarTextColor = '#FFF';
         private static DefaultLegendTextColor = 'rgb(69, 106, 118)';
         private static Default2ndYAxixColor = 'rgb(135, 144, 146)';
-        private static ValueDefaultSort = 'ASCENDING';
+        private static ValueDefaultSort = SortOrderEnum.ASCENDING;
         private static DurationAnimations = 200;
         private static MinOpacity = 0.3;
         private static MaxOpacity = 1;
