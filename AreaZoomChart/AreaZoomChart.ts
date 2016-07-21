@@ -9,23 +9,17 @@ module powerbi.visuals {
                {
                     name: 'Value',
                     displayName: 'Value',
-                    kind: VisualDataRoleKind.Measure,
-                    requiredTypes: [{ numeric: true }]
-                },{
-                    name: 'Series',
-                    kind: VisualDataRoleKind.Measure,
-                    displayName: 'Series',
+                    kind: VisualDataRoleKind.GroupingOrMeasure,
                 }
             ],
             dataViewMappings: [{
                 conditions: [
-                    {  'Value': { max: 1 }, 'Series': { max: 1 } }
+                    {  'Value': { max: 2 }}
                 ], 
                 categorical: {
                     values: {
                         select: [
-                            { bind: { to: 'Value' } },
-                            { bind: { to: 'Series' } },
+                            { bind: { to: 'Value' } }
                         ],
                         dataReductionAlgorithm: { top: { } }
                     },
@@ -50,11 +44,11 @@ module powerbi.visuals {
             }
         };
 
+		//TODO: -if series is not datetime, no formatting needed. 
+		//		-for datetime, user can pass formats for axis values and range text 
         private static VisualClassName = 'AreaZoomChart';
-        private static DATETIME_PARSE_FORMAT = '%Y-%m-%d'; //TODO can be non-datetime
-        private static TimeParse = d3.time.format(AreaZoomChart.DATETIME_PARSE_FORMAT).parse;
-        private static YearFormat = d3.time.format('%Y');
-        private static INITIAL_ZOOM_START = new Date(1999, 0, 1);//TODO can be non-datetime
+        private static YearFormat = d3.time.format('%Y-%m-%d');
+        private static INITIAL_ZOOM_START = new Date(1999, 0, 1);
         private static INITIAL_ZOOM_END = new Date(2003, 0, 0);
       
         private svg: D3.Selection;
@@ -79,7 +73,7 @@ module powerbi.visuals {
             this.dataView = dataView;
 
             var viewport = options.viewport;
-            var margin = { top: 0, right: 100, bottom: 100, left: 0 };
+            var margin = { top: 0, right: 60, bottom: 60, left: 0 };
             var width = viewport.width - margin.left - margin.right;
             var height = viewport.height - margin.top - margin.bottom;
 
@@ -91,30 +85,25 @@ module powerbi.visuals {
                 .attr('class', 'main-group')
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
-            var prevValue = 0;
+            /*var prevValue = 0;
             var data = AreaZoomChart.sdata.map(function(d) {
                     var d0 = AreaZoomChart.TimeParse(d[0]);
                     var currentVal = d[1];
                     var d1 = prevValue + currentVal;
                     prevValue = currentVal;
                     return [d0, d1];
-                });
-            //var data = AreaZoomChart.converter(this.dataView);
+                });*/
+            var data = AreaZoomChart.converter(this.dataView);
             
-            if (width >10 && height>10){
+            if (width>10 && height>10){
                 this.render(data, width, height);
             }    
         }
 
         private static converter(dataView: DataView){
-            var categoryDataView = dataView.categorical;
-            var categoryValues = categoryDataView.values.grouped();
-            var prevValue = 0;
-            return categoryValues.map(function(d) {
-                return {
-                    date : AreaZoomChart.TimeParse(d[0]),
-                    value : (prevValue += d[1])
-                }
+            var categories = dataView.categorical.categories;
+			return categories[0].values.map(function(d, i) {
+                return [d, categories[1].values[i]]
             });
         }
 
@@ -122,6 +111,7 @@ module powerbi.visuals {
             var mainGroup = this.svg.select('g.main-group');
 
             //scales
+			//TODO: can we get the min/max from data?
             var zoomStart = this.GetProperty('initialzoom', 'start', AreaZoomChart.INITIAL_ZOOM_START);
             var zoomEnd = this.GetProperty('initialzoom', 'start', AreaZoomChart.INITIAL_ZOOM_END);
             
@@ -142,33 +132,20 @@ module powerbi.visuals {
                 .x(function(d) { return x(d[0]); })
                 .y(function(d) { return y(d[1]); });
 
-            //gradient
-            var gradient = mainGroup.append('defs').append('linearGradient')
-                .attr('id', 'gradient')
-                .attr('x2', '0%')
-                .attr('y2', '100%');
-
-            gradient.append('stop')
-                .attr('offset', '0%')
-                .attr('stop-color', this.GetProperty('gradient', 'firstStop', '#FFFFFF')) 
-                .attr('stop-opacity', .5);
-
-            gradient.append('stop')
-                .attr('offset', '100%')
-                .attr('stop-color', this.GetProperty('gradient', 'firstStop', '#999999'))
-                .attr('stop-opacity', 1);
-
             //clip path   
             mainGroup.append('clipPath')
                 .attr('id', 'clip')
               .append('rect')
-                .attr('x', x(0))
-                .attr('y', y(1))
-                .attr('width', x(1) - x(0))
-                .attr('height', y(0) - y(1));
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("width", width)
+                .attr("height", height);
 
             //axes
-            // TODO: add axes orient properties
+            // TODO: 
+			//var xOrient = this.GetProperty('axisproperties', 'xOrient', AreaZoomChart.X_ORIENT);
+            //var yOrient = this.GetProperty('axisproperties', 'yOrient', AreaZoomChart.Y_ORIENT);
+            // set tickSize based on orientation for each axis
             var xAxis = d3.svg.axis().scale(x).orient('bottom').tickSize(-height, 0).tickPadding(6);
             var yAxis = d3.svg.axis().scale(y).orient('right').tickSize(-width).tickPadding(6);
 
@@ -181,22 +158,27 @@ module powerbi.visuals {
                 .attr('transform', 'translate(0,' + height + ')');
 
             //paths
-             mainGroup.append('path')
+            mainGroup.append('path')
                 .attr('class', 'area')
                 .attr('clip-path', 'url(#clip)')
-                .style('fill', 'url(#gradient)');
+                .style('fill-opacity', '0.5');
           
             mainGroup.append('path')
                 .attr('class', 'line')
                 .attr('clip-path', 'url(#clip)');
 
             //zoom rect
+            var zoom = d3.behavior.zoom()
+                        .x(x)
+                        .scaleExtent([0.5, 10])
+                        .on('zoom', draw);
+                        
             mainGroup.append('rect')
                 .attr('class', 'zoomer')
                 .attr('width', width)
                 .attr('height', height)
-                .call(d3.behavior.zoom().x(x).scaleExtent([0.5, 10]).on('zoom', draw));
-
+                .call(zoom);
+				
             mainGroup.append('text')
                 .attr('x', width/2)
                 .attr('y', height+50)
@@ -211,9 +193,11 @@ module powerbi.visuals {
             function draw() {
                 mainGroup.select('g.x.axis').call(xAxis);
                 mainGroup.select('g.y.axis').call(yAxis);
-                mainGroup.select('path.area').attr('d', area);
-                mainGroup.select('path.line').attr('d', line);
-                mainGroup.select('text.domain-text').text(x.domain().map(AreaZoomChart.YearFormat).join('-'));
+                mainGroup.select('path.area,path.line').attr('d', area);
+                mainGroup.select('path.line').attr('d', area);
+				var formatter = (x.domain()[0] instanceof Date) && AreaZoomChart.YearFormat || function(d){return d};
+				var domainRange = x.domain().map(formatter);
+                mainGroup.select('text.domain-text').text(domainRange.join(' to '));
             }
         }
 
@@ -228,16 +212,19 @@ module powerbi.visuals {
             d3.selectAll('.x.axis path')
                 .style('stroke', '#000');
 
-            d3.selectAll('.x.axis path')
+            d3.selectAll('.x.axis line')
                 .style('stroke', '#fff')
                 .style('stroke-opacity', '.5');
 
             d3.selectAll('.y.axis line')
                 .style('stroke', '#ddd');
 
+			d3.selectAll('path.area')
+                .style('fill', 'steelblue'); //var areaFill = this.GetProperty('areaproperties', 'fillColor', AreaZoomChart.AREA_FILL_COLOR);
+				    
             d3.selectAll('path.line')
                 .style('fill', 'none')
-                .style('stroke', '#000')
+                .style('stroke', '#315a7d') //var lineColor = this.GetProperty('areaproperties', 'lineColor', AreaZoomChart.LINE_COLOR);
                 .style('stroke-width', '.5px');
 
             d3.selectAll('rect.zoomer')
@@ -452,95 +439,6 @@ module powerbi.visuals {
             ['2002-02-18',14682],
             ['2002-02-19',14544],
             ['2002-02-20',14607],
-            ['2002-01-24',14153],
-            ['2002-01-25',14389],
-            ['2002-01-26',12505],
-            ['2002-01-27',13528],
-            ['2002-01-28',14284],
-            ['2002-01-29',14245],
-            ['2002-01-30',13812],
-            ['2002-01-31',13366],
-            ['2002-02-01',14221],
-            ['2002-02-02',12507],
-            ['2002-02-03',13614],
-            ['2002-02-04',14407],
-            ['2002-02-05',13818],
-            ['2002-02-06',13954],
-            ['2002-02-07',14446],
-            ['2002-02-08',14451],
-            ['2002-02-09',12528],
-            ['2002-02-10',13719],
-            ['2002-02-11',14465],
-            ['2002-02-12',14407],
-            ['2002-02-13',14534],
-            ['2002-02-14',14678],
-            ['2002-02-15',14713],
-            ['2002-02-16',12716],
-            ['2002-02-17',13864],
-            ['2002-02-18',14682],
-            ['2002-02-19',14544],
-            ['2002-02-20',14607],
-            ['2002-02-21',14662],
-            ['2002-02-22',14735],
-            ['2002-02-23',12735],
-            ['2002-02-24',13871],
-            ['2002-02-25',14665],
-            ['2002-02-26',14366],
-            ['2002-02-27',14604],
-            ['2002-02-28',14699],
-            ['2002-03-01',14684],
-            ['2002-03-02',12049],
-            ['2002-03-03',13881],
-            ['2002-03-04',14682],
-            ['2002-03-05',14703],
-            ['2002-03-06',14771],
-            ['2002-03-07',14842],
-            ['2002-03-08',14766],
-            ['2002-03-09',12508],
-            ['2002-03-10',13945],
-            ['2002-03-11',14815],
-            ['2002-03-12',14600],
-            ['2002-03-13',14728],
-            ['2002-03-14',14604],
-            ['2002-03-15',14805],
-            ['2002-03-16',12838],
-            ['2002-03-17',14012],
-            ['2002-03-18',14737],
-            ['2002-01-24',14153],
-            ['2002-01-25',14389],
-            ['2002-01-26',12505],
-            ['2002-01-27',13528],
-            ['2002-01-28',14284],
-            ['2002-01-29',14245],
-            ['2002-01-30',13812],
-            ['2002-01-31',13366],
-            ['2002-02-01',14221],
-            ['2002-02-02',12507],
-            ['2002-02-03',13614],
-            ['2002-02-04',14407],
-            ['2002-02-05',13818],
-            ['2002-02-06',13954],
-            ['2002-02-07',14446],
-            ['2002-02-08',14451],
-            ['2002-02-09',12528],
-            ['2002-02-10',13719],
-            ['2002-02-11',14465],
-            ['2002-02-12',14407],
-            ['2002-02-13',14534],
-            ['2002-02-14',14678],
-            ['2002-02-15',14713],
-            ['2002-02-16',12716],
-            ['2002-02-17',13864],
-            ['2002-02-18',14682],
-            ['2002-02-19',14544],
-            ['2002-02-20',14607],
-            ['2002-02-21',14662],
-            ['2002-02-22',14735],
-            ['2002-02-23',12735],
-            ['2002-02-24',13871],
-            ['2002-02-25',14665],
-            ['2002-02-26',14366],
-            ['2002-02-27',14604],
             ['2002-02-28',14699],
             ['2002-03-01',14684],
             ['2002-03-02',12049],
