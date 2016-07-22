@@ -21,8 +21,9 @@ module powerbi.visuals {
                         select: [
                             { bind: { to: 'Value' } }
                         ],
-                        dataReductionAlgorithm: { top: { } }
+                        dataReductionAlgorithm: { top: { count: 1000 } }
                     },
+                	rowCount: { preferred: { min: 1 } }
                 }
             }],
             objects: {
@@ -31,31 +32,98 @@ module powerbi.visuals {
                     properties: {
                         start: {
                             description: 'Zoom start',
-                            type: { formatting: { numeric: true } },
+                            type: { numeric: true },
                             displayName: 'Zoom start'
                         },
                         end: {
                             description: 'Zoom end',
-                            type: { formatting: { numeric: true } },
+                            type: { numeric: true },
                             displayName: 'Zoom end'
                         }
                     }
                 },
+                areaproperties: {
+                    displayName: 'Area',
+                    properties: {
+                        fillColor: {
+                            description: 'Fill color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Fill color'
+                        },
+                        lineColor: {
+                            description: 'Line color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Line color'
+                        }
+                    }
+                },
+                axisproperties: {
+                    displayName: 'Axis',
+                    properties: {
+                        fontSize: {
+                            description: 'Font size',
+                            type: { formatting: { fontSize: true } },
+                            displayName: 'Font size'
+                        },
+                        textColor: {
+                            description: 'Text color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Text color'
+                        },
+                        xAxisLineColor: {
+                            description: 'X Axis Line color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'X Axis Line color'
+                        },
+                        yAxisLineColor: {
+                            description: 'Y Axis Line color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Y Axis Line color'
+                        }
+                    }
+                },
+                footertextproperties: {
+                    displayName: 'Footer',
+                    properties: {
+                        fontSize: {
+                            description: 'Font size',
+                            type: { formatting: { fontSize: true } },
+                            displayName: 'Font size'
+                        },
+                        textColor: {
+                            description: 'Text color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Text color'
+                        }
+                    }
+                }
             }
         };
 
-		//TODO: -if series is not datetime, no formatting needed. 
-		//		-for datetime, user can pass formats for axis values and range text 
-        private static VisualClassName = 'AreaZoomChart';
-        private static YearFormat = d3.time.format('%Y-%m-%d');
-        private static INITIAL_ZOOM_START = new Date(1999, 0, 1);
-        private static INITIAL_ZOOM_END = new Date(2003, 0, 0);
-      
+		private static YearFormat = d3.time.format('%Y-%m-%d');
+        private static AREA_FILL_COLOR = 'steelblue';
+        private static LINE_COLOR = '#315a7d';
+        private static AXIS_FONT_SIZE = '10';
+        private static AXIS_TEXT_COLOR = '#777';
+        private static AXIS_LINE_COLOR = '#CCC';
+        private static FOOTER_TEXT_COLOR = '#333';
+        private static FOOTER_FONT_SIZE = '12';
+
         private svg: D3.Selection;
         private rootElement: D3.Selection;
         
         private selectionManager: SelectionManager;
         private dataView: DataView;
+
+        private mainGroup;
+        private width;
+        private height;
+        private x;
+        private y;
+        private xAxis;
+        private yAxis;
+        private area;
+        private line;
 
         public init(options: VisualInitOptions): void {
             var element = options.element;
@@ -63,7 +131,7 @@ module powerbi.visuals {
             this.rootElement = d3.select(element.get(0));
             this.svg = this.rootElement
                 .append('svg')
-                .attr('class', AreaZoomChart.VisualClassName);
+                .attr('class', AreaZoomChart);
         }
 
         public update(options: VisualUpdateOptions) {
@@ -74,8 +142,8 @@ module powerbi.visuals {
 
             var viewport = options.viewport;
             var margin = { top: 0, right: 60, bottom: 60, left: 0 };
-            var width = viewport.width - margin.left - margin.right;
-            var height = viewport.height - margin.top - margin.bottom;
+            this.width = viewport.width - margin.left - margin.right;
+            this.height = viewport.height - margin.top - margin.bottom;
 
             this.svg.selectAll('g').remove();
             this.svg
@@ -87,8 +155,8 @@ module powerbi.visuals {
 
             var data = AreaZoomChart.converter(this.dataView);
             
-            if (width>10 && height>10){
-                this.render(data, width, height);
+            if (this.width > 20 && this.height > 20){
+                this.render(data);
             }    
         }
 
@@ -99,98 +167,118 @@ module powerbi.visuals {
             });
         }
 
-        private render(data, width, height){
-            var mainGroup = this.svg.select('g.main-group');
+        private xMin;
+        private xMax;
+        private createScales(data){
+            this.xMin = d3.min(data, d=> d[0]);
+            this.xMax = d3.max(data, d=> d[0]);
+            var zoomStart = this.GetProperty('initialzoom', 'start', this.xMin);
+            var zoomEnd = this.GetProperty('initialzoom', 'start', this.xMax);
+            this.x = d3.time.scale().range([0, this.width]);
+            this.x.domain([zoomStart, zoomEnd]);
+            this.y = d3.scale.linear().range([this.height, 0]);
+            this.y.domain([0, d3.max(data, d=> d[1])]);
+        }
 
-            //scales
-			//TODO: can we get the min/max from data?
-            var zoomStart = this.GetProperty('initialzoom', 'start', AreaZoomChart.INITIAL_ZOOM_START);
-            var zoomEnd = this.GetProperty('initialzoom', 'start', AreaZoomChart.INITIAL_ZOOM_END);
-            
-            var x = d3.time.scale().range([0, width]);
-            x.domain([zoomStart, zoomEnd]);
-            var y = d3.scale.linear().range([height, 0]);
-            y.domain([0, d3.max(data, function(d) { return d[1]; })]);
-
+        private createPaths(){
             //area
-            var area = d3.svg.area()
-                .interpolate('step-after')
-                .x(function(d) { return x(d[0]); })
-                .y0(y(0))
-                .y1(function(d) { return y(d[1]); });
+            var x = this.x, y = this.y;
 
-            var line = d3.svg.line()
+            this.area = d3.svg.area()
+                .interpolate('step-after')
+                .x(d=> x(d[0]))
+                .y0(y(0))
+                .y1(d=> y(d[1]));
+            
+            //line
+            this.line = d3.svg.line()
                 .interpolate('step-after')
                 .x(function(d) { return x(d[0]); })
                 .y(function(d) { return y(d[1]); });
-
-            //clip path   
-            mainGroup.append('clipPath')
+       
+            this.mainGroup.append('clipPath')
                 .attr('id', 'clip')
               .append('rect')
-                .attr("x", 0)
-                .attr("y", 0)
-                .attr("width", width)
-                .attr("height", height);
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', this.width)
+                .attr('height', this.height);
+        }
 
-            //axes
-            // TODO: 
-			//var xOrient = this.GetProperty('axisproperties', 'xOrient', AreaZoomChart.X_ORIENT);
-            //var yOrient = this.GetProperty('axisproperties', 'yOrient', AreaZoomChart.Y_ORIENT);
-            // set tickSize based on orientation for each axis
-            var xAxis = d3.svg.axis().scale(x).orient('bottom').tickSize(-height, 0).tickPadding(6);
-            var yAxis = d3.svg.axis().scale(y).orient('right').tickSize(-width).tickPadding(6);
-
-            mainGroup.append('g')
-                .attr('class', 'y axis')
-                .attr('transform', 'translate(' + width + ',0)');
-    
-            mainGroup.append('g')
-                .attr('class', 'x axis')
-                .attr('transform', 'translate(0,' + height + ')');
-
-            //paths
-            mainGroup.append('path')
+        private createClip(){
+             //paths
+            this.mainGroup.append('path')
                 .attr('class', 'area')
                 .attr('clip-path', 'url(#clip)')
                 .style('fill-opacity', '0.5');
           
-            mainGroup.append('path')
+            this.mainGroup.append('path')
                 .attr('class', 'line')
                 .attr('clip-path', 'url(#clip)');
+        }
 
-            //zoom rect
+        private createAxes(){
+           /*
+            // TODO:
+            var xOrient = this.GetProperty('axisproperties', 'xOrient', AreaZoomChart.X_ORIENT);
+            var yOrient = this.GetProperty('axisproperties', 'yOrient', AreaZoomChart.Y_ORIENT);
+            set tickSize based on orientation for each axis
+            */
+            this.xAxis = d3.svg.axis().scale(this.x).orient('bottom').tickSize(-this.height, 0).tickPadding(6);
+            this.yAxis = d3.svg.axis().scale(this.y).orient('right').tickSize(-this.width).tickPadding(6);
+
+            this.mainGroup.append('g')
+                .attr('class', 'y axis')
+                .attr('transform', 'translate(' + this.width + ',0)');
+    
+            this.mainGroup.append('g')
+                .attr('class', 'x axis')
+                .attr('transform', 'translate(0,' + this.height + ')');
+        }
+
+        private enableZoom(){
             var zoom = d3.behavior.zoom()
-                        .x(x)
+                        .x(this.x)
                         .scaleExtent([0.5, 10])
-                        .on('zoom', draw);
+                        .on('zoom', ()=> this.draw());
                         
-            mainGroup.append('rect')
+            this.mainGroup.append('rect')
                 .attr('class', 'zoomer')
-                .attr('width', width)
-                .attr('height', height)
+                .attr('width', this.width)
+                .attr('height', this.height)
                 .call(zoom);
 				
-            mainGroup.append('text')
-                .attr('x', width/2)
-                .attr('y', height+50)
-                .attr('class', 'domain-text');
+            this.mainGroup.append('text')
+                .attr('x', this.width/2)
+                .attr('y', this.height+50)
+                .attr('class', 'footer-text');
+        }
 
-            mainGroup.select('path.area').data([data]);
-            mainGroup.select('path.line').data([data]);
-            
-            draw();
+        private draw(){
+            var mainGroup = this.mainGroup;
+            mainGroup.select('g.x.axis').call(this.xAxis);
+            mainGroup.select('g.y.axis').call(this.yAxis);
+            mainGroup.select('path.area').attr('d', this.area);
+            mainGroup.select('path.line').attr('d', this.line);
+            var formatter = (this.x.domain()[0] instanceof Date) && AreaZoomChart.YearFormat || (d=> d);
+            var domainRange = this.x.domain().map(formatter);
+            mainGroup.select('text.footer-text').text(domainRange.join(' to '));
             this.setStyles();
+        }
 
-            function draw() {
-                mainGroup.select('g.x.axis').call(xAxis);
-                mainGroup.select('g.y.axis').call(yAxis);
-                mainGroup.select('path.area,path.line').attr('d', area);
-                mainGroup.select('path.line').attr('d', area);
-				var formatter = (x.domain()[0] instanceof Date) && AreaZoomChart.YearFormat || function(d){return d};
-				var domainRange = x.domain().map(formatter);
-                mainGroup.select('text.domain-text').text(domainRange.join(' to '));
-            }
+        private bindData(data){
+            ['area','line'].forEach(a=> this.mainGroup.select('path.' + a).data([data]));
+        }
+
+        private render(data){
+            this.mainGroup = this.svg.select('g.main-group');;
+            this.createScales(data);
+            this.createClip();
+            this.createPaths();
+            this.createAxes();
+            this.enableZoom();
+            this.bindData(data);
+            this.draw();
         }
 
         private setStyles(){
@@ -202,29 +290,100 @@ module powerbi.visuals {
                 .style('stroke-width', '.5px');
 
             d3.selectAll('.x.axis path')
-                .style('stroke', '#000');
+                .style('stroke', this.GetProperty('axisproperties', 'xAxisLineColor', AreaZoomChart.AXIS_LINE_COLOR));
+
+            d3.selectAll('.x.axis text, .y.axis text')
+                .style('font-size', this.GetProperty('axisproperties', 'fontSize', AreaZoomChart.AXIS_FONT_SIZE))
+                .style('fill', this.GetProperty('axisproperties', 'textColor', AreaZoomChart.AXIS_TEXT_COLOR));
 
             d3.selectAll('.x.axis line')
                 .style('stroke', '#fff')
                 .style('stroke-opacity', '.5');
 
             d3.selectAll('.y.axis line')
-                .style('stroke', '#ddd');
+                .style('stroke', this.GetProperty('axisproperties', 'yAxisLineColor', AreaZoomChart.AXIS_LINE_COLOR));
 
 			d3.selectAll('path.area')
-                .style('fill', 'steelblue'); //var areaFill = this.GetProperty('areaproperties', 'fillColor', AreaZoomChart.AREA_FILL_COLOR);
+                .style('fill', this.GetProperty('areaproperties', 'fillColor', AreaZoomChart.AREA_FILL_COLOR));
 				    
             d3.selectAll('path.line')
                 .style('fill', 'none')
-                .style('stroke', '#315a7d') //var lineColor = this.GetProperty('areaproperties', 'lineColor', AreaZoomChart.LINE_COLOR);
+                .style('stroke', this.GetProperty('areaproperties', 'lineColor', AreaZoomChart.LINE_COLOR))
                 .style('stroke-width', '.5px');
 
             d3.selectAll('rect.zoomer')
                 .style('fill', 'none')
                 .style('cursor', 'move')
                 .style('pointer-events', 'all');
+
+            d3.selectAll('text.footer-text')
+                .style('font-size', this.GetProperty('footertextproperties', 'fontSize', AreaZoomChart.FOOTER_FONT_SIZE))
+                .style('fill', this.GetProperty('footertextproperties', 'textColor', AreaZoomChart.FOOTER_TEXT_COLOR));
         }
 
+        public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
+            var enumeration = new ObjectEnumerationBuilder();
+            var objectName = options.objectName;
+
+            switch (objectName) {
+                case 'initialzoom':
+                    var properties: VisualObjectInstance = {
+                        objectName: objectName,
+                        displayName: 'Initial Zoom',
+                        selector: null,
+                        properties: {
+                            start: this.GetProperty(objectName, 'start', this.xMin),
+                            end: this.GetProperty(objectName, 'end', this.xMax)
+                        }
+                    };
+                    enumeration.pushInstance(properties);
+                    break;
+
+                case 'areaproperties':
+                    var properties: VisualObjectInstance = {
+                        objectName: objectName,
+                        displayName: 'Area',
+                        selector: null,
+                        properties: {
+                            fillColor: this.GetProperty(objectName, 'fillColor', AreaZoomChart.AREA_FILL_COLOR),
+                            lineColor: this.GetProperty(objectName, 'lineColor', AreaZoomChart.LINE_COLOR)
+                        }
+                    };
+                    enumeration.pushInstance(properties);
+                    break;
+
+                case 'axisproperties':
+                    var properties: VisualObjectInstance = {
+                        objectName: objectName,
+                        displayName: 'Axis',
+                        selector: null,
+                        properties: {
+                            fontSize: this.GetProperty(objectName, 'fontSize', AreaZoomChart.AXIS_FONT_SIZE),
+                            textColor: this.GetProperty(objectName, 'textColor', AreaZoomChart.AXIS_TEXT_COLOR),
+                            xAxisLineColor: this.GetProperty(objectName, 'xAxisLineColor', AreaZoomChart.AXIS_LINE_COLOR),
+                            yAxisLineColor: this.GetProperty(objectName, 'yAxisLineColor', AreaZoomChart.AXIS_LINE_COLOR)
+                        }
+                    };
+                    enumeration.pushInstance(properties);
+                    break;
+
+                case 'footertextproperties':
+                    var properties: VisualObjectInstance = {
+                        objectName: objectName,
+                        displayName: 'Footer',
+                        selector: null,
+                        properties: {
+                            fontSize: this.GetProperty(objectName, 'fontSize', AreaZoomChart.FOOTER_FONT_SIZE),
+                            textColor: this.GetProperty(objectName, 'textColor', AreaZoomChart.FOOTER_TEXT_COLOR)
+                        }
+                    };
+                    enumeration.pushInstance(properties);
+                    break;
+            }
+            
+            return  enumeration.complete();
+        }
+        
         private GetProperty(groupPropertyValue: string, propertyValue: string, defaultValue) {
             if (this.dataView) {
                 var objects = this.dataView.metadata.objects;
@@ -240,28 +399,5 @@ module powerbi.visuals {
             }
             return defaultValue;
         }
-
-        public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
-            var enumeration = new ObjectEnumerationBuilder();
-            var objectName = options.objectName;
-
-            switch (objectName) {
-                case 'initialzoom':
-                    var properties: VisualObjectInstance = {
-                        objectName: objectName,
-                        displayName: 'Initial Zoom',
-                        selector: null,
-                        properties: {
-                            start: this.GetProperty(objectName, 'start', AreaZoomChart.INITIAL_ZOOM_START),
-                            end: this.GetProperty(objectName, 'end', AreaZoomChart.INITIAL_ZOOM_END)
-                        }
-                    };
-                    enumeration.pushInstance(properties);
-                    break;
-            }
-            
-            return  enumeration.complete();
-        }
-
-    }    
+    }
 }
