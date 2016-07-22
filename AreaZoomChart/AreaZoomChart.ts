@@ -6,7 +6,12 @@ module powerbi.visuals {
    
         public static capabilities: VisualCapabilities = {
             dataRoles: [
-               {
+                {
+                    name: 'Category',
+                    displayName: 'Category',
+                    kind: VisualDataRoleKind.Grouping
+                },
+                {
                     name: 'Value',
                     displayName: 'Value',
                     kind: VisualDataRoleKind.GroupingOrMeasure,
@@ -14,16 +19,19 @@ module powerbi.visuals {
             ],
             dataViewMappings: [{
                 conditions: [
-                    {  'Value': { max: 2 }}
+                    {  'Category': { max: 1 }, 'Value': { max: 1 }}
                 ], 
                 categorical: {
+                    categories: {
+                         for: { in: 'Category' },
+                         dataReductionAlgorithm: { top: { count: 10000 } }
+                    },
                     values: {
                         select: [
                             { bind: { to: 'Value' } }
                         ],
-                        dataReductionAlgorithm: { top: { count: 1000 } }
-                    },
-                	rowCount: { preferred: { min: 1 } }
+						dataReductionAlgorithm: { top: { count: 10000 } }
+                    }
                 }
             }],
             objects: {
@@ -100,7 +108,7 @@ module powerbi.visuals {
             }
         };
 
-		private static YearFormat = d3.time.format('%Y-%m-%d');
+        private static YearFormat = d3.time.format('%Y-%m-%d');
         private static AREA_FILL_COLOR = 'steelblue';
         private static LINE_COLOR = '#315a7d';
         private static AXIS_FONT_SIZE = '10';
@@ -164,7 +172,7 @@ module powerbi.visuals {
 
         private static converter(dataView: DataView){
             var categories = dataView.categorical.categories;
-			return categories[0].values.map(function(d, i) {
+            return categories[0].values.map(function(d, i) {
                 return [d, categories[1].values[i]]
             });
         }
@@ -302,7 +310,7 @@ module powerbi.visuals {
             d3.selectAll('.y.axis line')
                 .style('stroke', this.GetProperty('axisproperties', 'yAxisLineColor', AreaZoomChart.AXIS_LINE_COLOR));
 
-			d3.selectAll('path.area')
+            d3.selectAll('path.area')
                 .style('fill', this.GetProperty('areaproperties', 'fillColor', AreaZoomChart.AREA_FILL_COLOR));
 				    
             d3.selectAll('path.line')
@@ -322,7 +330,6 @@ module powerbi.visuals {
             
             var self = this;
             footerText.each(function(){
-                console.log(this.getBBox().width);
                 d3.select(this).attr('x', (self.width - this.getBBox().width) / 2);
             });
         }
