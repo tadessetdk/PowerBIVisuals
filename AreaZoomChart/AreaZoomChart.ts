@@ -116,6 +116,7 @@ module powerbi.visuals {
         private static AXIS_LINE_COLOR = '#CCC';
         private static FOOTER_TEXT_COLOR = '#333';
         private static FOOTER_FONT_SIZE = '12';
+        private static MARGIN = { top: 0, right: 60, bottom: 60, left: 0 };
   
         private selectionManager: SelectionManager;
         private dataView: DataView;
@@ -147,13 +148,12 @@ module powerbi.visuals {
         public update(options: VisualUpdateOptions) {
             if (!options.dataViews || !options.dataViews[0]) return;
             
-            var dataView = options.dataViews[0];
-            this.dataView = dataView;
-
             var viewport = options.viewport;
-            var margin = { top: 0, right: 60, bottom: 60, left: 0 };
+            var margin = AreaZoomChart.MARGIN;
             this.width = viewport.width - margin.left - margin.right;
             this.height = viewport.height - margin.top - margin.bottom;
+
+            if (this.width < 20 || this.height < 20) return;
 
             this.svg.selectAll('g').remove();
             this.svg
@@ -163,11 +163,9 @@ module powerbi.visuals {
                 .attr('class', 'main-group')
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
+            this.dataView = options.dataViews[0];
             var data = AreaZoomChart.converter(this.dataView);
-            
-            if (this.width > 20 && this.height > 20){
-                this.render(data);
-            }    
+            this.render(data);
         }
 
         private static converter(dataView: DataView){

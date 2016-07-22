@@ -153,7 +153,8 @@ module powerbi.visuals {
         private static DurationAnimations = 200;
         private static MinOpacity = 0.3;
         private static MaxOpacity = 1;
-
+        private static MARGIN = { top: 60, right: 20, bottom: 20, left: 100 };
+            
         private svg: D3.Selection;
         private rootElement: D3.Selection;
         private dataPoints;
@@ -175,15 +176,12 @@ module powerbi.visuals {
         public update(options: VisualUpdateOptions) {
             if (!options.dataViews || !options.dataViews[0]) return; // or clear the view, display an error, etc.
            
-            var dataView = options.dataViews[0];
-            this.dataView = dataView;
-            var sortOrder = this.GetProperty('valuesortproperties', 'valueSortOrderDefault', DivergingStackedBar.ValueDefaultSort);
-            var data = DivergingStackedBar.converter(dataView, sortOrder, this.colors);
             var viewport = options.viewport;
-
-            var margin = { top: 60, right: 20, bottom: 20, left: 100 };
+            var margin = DivergingStackedBar.MARGIN;
             var width = viewport.width - margin.left - margin.right;
             var height = viewport.height - margin.top - margin.bottom;
+
+            if (width < 20 || height < 20) return; 
 
             this.svg.selectAll('g').remove();
             var mainGroup = this.svg
@@ -192,9 +190,10 @@ module powerbi.visuals {
             .append('g')
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
-            if (width >10 && height>10){
-                this.render(data, mainGroup, width, height);
-            }    
+            this.dataView = options.dataViews[0];
+            var sortOrder = this.GetProperty('valuesortproperties', 'valueSortOrderDefault', DivergingStackedBar.ValueDefaultSort);
+            var data = DivergingStackedBar.converter(dataView, sortOrder, this.colors);
+            this.render(data, mainGroup, width, height);
         }
 
         private static converter(dataView: DataView, sortOrder: string, colors){
