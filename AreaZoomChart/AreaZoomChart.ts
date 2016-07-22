@@ -108,12 +108,12 @@ module powerbi.visuals {
         private static AXIS_LINE_COLOR = '#CCC';
         private static FOOTER_TEXT_COLOR = '#333';
         private static FOOTER_FONT_SIZE = '12';
+  
+        private selectionManager: SelectionManager;
+        private dataView: DataView;
 
         private svg: D3.Selection;
         private rootElement: D3.Selection;
-        
-        private selectionManager: SelectionManager;
-        private dataView: DataView;
 
         private mainGroup;
         private width;
@@ -122,6 +122,8 @@ module powerbi.visuals {
         private y;
         private xAxis;
         private yAxis;
+        private xMin;
+        private xMax;
         private area;
         private line;
 
@@ -167,8 +169,17 @@ module powerbi.visuals {
             });
         }
 
-        private xMin;
-        private xMax;
+        private render(data){
+            this.mainGroup = this.svg.select('g.main-group');;
+            this.createScales(data);
+            this.createClip();
+            this.createPaths();
+            this.createAxes();
+            this.enableZoom();
+            this.bindData(data);
+            this.draw();
+        }
+
         private createScales(data){
             this.xMin = d3.min(data, d=> d[0]);
             this.xMax = d3.max(data, d=> d[0]);
@@ -222,7 +233,7 @@ module powerbi.visuals {
             // TODO:
             var xOrient = this.GetProperty('axisproperties', 'xOrient', AreaZoomChart.X_ORIENT);
             var yOrient = this.GetProperty('axisproperties', 'yOrient', AreaZoomChart.Y_ORIENT);
-            set tickSize based on orientation for each axis
+            -set tickSize based on orientation for each axis
             */
             this.xAxis = d3.svg.axis().scale(this.x).orient('bottom').tickSize(-this.height, 0).tickPadding(6);
             this.yAxis = d3.svg.axis().scale(this.y).orient('right').tickSize(-this.width).tickPadding(6);
@@ -249,9 +260,12 @@ module powerbi.visuals {
                 .call(zoom);
 				
             this.mainGroup.append('text')
-                .attr('x', this.width/2)
-                .attr('y', this.height+50)
+                .attr('y', this.height + 50)
                 .attr('class', 'footer-text');
+        }
+
+        private bindData(data){
+            ['area','line'].forEach(a=> this.mainGroup.select('path.' + a).data([data]));
         }
 
         private draw(){
@@ -264,21 +278,6 @@ module powerbi.visuals {
             var domainRange = this.x.domain().map(formatter);
             mainGroup.select('text.footer-text').text(domainRange.join(' to '));
             this.setStyles();
-        }
-
-        private bindData(data){
-            ['area','line'].forEach(a=> this.mainGroup.select('path.' + a).data([data]));
-        }
-
-        private render(data){
-            this.mainGroup = this.svg.select('g.main-group');;
-            this.createScales(data);
-            this.createClip();
-            this.createPaths();
-            this.createAxes();
-            this.enableZoom();
-            this.bindData(data);
-            this.draw();
         }
 
         private setStyles(){
@@ -316,9 +315,16 @@ module powerbi.visuals {
                 .style('cursor', 'move')
                 .style('pointer-events', 'all');
 
-            d3.selectAll('text.footer-text')
+            var footerText = d3.selectAll('text.footer-text');
+            footerText
                 .style('font-size', this.GetProperty('footertextproperties', 'fontSize', AreaZoomChart.FOOTER_FONT_SIZE))
                 .style('fill', this.GetProperty('footertextproperties', 'textColor', AreaZoomChart.FOOTER_TEXT_COLOR));
+            
+            var self = this;
+            footerText.each(function(){
+                console.log(this.getBBox().width);
+                d3.select(this).attr('x', (self.width - this.getBBox().width) / 2);
+            });
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
