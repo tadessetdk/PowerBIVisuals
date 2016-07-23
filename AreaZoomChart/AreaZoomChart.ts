@@ -35,8 +35,8 @@ module powerbi.visuals {
                 }
             }],
             objects: {
-                initialzoom: {
-                    displayName: 'Initial Zoom',
+                zoom: {
+                    displayName: 'Zoom',
                     properties: {
                         start: {
                             description: 'Zoom start',
@@ -47,6 +47,11 @@ module powerbi.visuals {
                             description: 'Zoom end',
                             type: { numeric: true },
                             displayName: 'Zoom end'
+                        },
+                        maxZoomLevel: {
+                            description: 'Max Zoom Level',
+                            type: { numeric: true },
+                            displayName: 'Max Zoom Level'
                         }
                     }
                 },
@@ -117,7 +122,8 @@ module powerbi.visuals {
         private static FOOTER_TEXT_COLOR = '#333';
         private static FOOTER_FONT_SIZE = '12';
         private static MARGIN = { top: 0, right: 60, bottom: 60, left: 0 };
-  
+        private static MAX_ZOOM_LEVEL = 1024;
+
         private selectionManager: SelectionManager;
         private dataView: DataView;
 
@@ -145,6 +151,7 @@ module powerbi.visuals {
                 .attr('class', AreaZoomChart);
         }
 
+        private data;
         public update(options: VisualUpdateOptions) {
             if (!options.dataViews || !options.dataViews[0]) return;
             
@@ -164,7 +171,7 @@ module powerbi.visuals {
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
             this.dataView = options.dataViews[0];
-            var data = AreaZoomChart.converter(this.dataView);
+            var data = this.data = AreaZoomChart.converter(this.dataView);
             this.render(data);
         }
 
@@ -189,8 +196,8 @@ module powerbi.visuals {
         private createScales(data){
             this.xMin = d3.min(data, d=> d[0]);
             this.xMax = d3.max(data, d=> d[0]);
-            var zoomStart = this.GetProperty('initialzoom', 'start', this.xMin);
-            var zoomEnd = this.GetProperty('initialzoom', 'start', this.xMax);
+            var zoomStart = this.GetProperty('zoom', 'start', this.xMin);
+            var zoomEnd = this.GetProperty('zoom', 'start', this.xMax);
             this.x = d3.time.scale().range([0, this.width]);
             this.x.domain([zoomStart, zoomEnd]);
             this.y = d3.scale.linear().range([this.height, 0]);
@@ -253,10 +260,13 @@ module powerbi.visuals {
                 .attr('transform', 'translate(0,' + this.height + ')');
         }
 
+        private zoom;
         private enableZoom(){
-            var zoom = d3.behavior.zoom()
+            var maxZoomLevel = this.GetProperty('zoom', 'maxZoomLevel', AreaZoomChart.MAX_ZOOM_LEVEL);
+            var zoom = this.zoom = d3.behavior.zoom()
                         .x(this.x)
-                        .scaleExtent([0.5, 10])
+                        .y(this.y)
+                        .scaleExtent([0.5, maxZoomLevel])
                         .on('zoom', ()=> this.draw());
                         
             this.mainGroup.append('rect')
@@ -275,6 +285,11 @@ module powerbi.visuals {
         }
 
         private draw(){
+            var x = this.x.domain();
+            var filteredData = this.data.filter(d=>d[0]>=x[0] && d[0]<=x[1]);
+            var yMax = d3.max(filteredData, d=>d[1]);
+            this.y.domain([0, yMax]);
+            
             var mainGroup = this.mainGroup;
             mainGroup.select('g.x.axis').call(this.xAxis);
             mainGroup.select('g.y.axis').call(this.yAxis);
@@ -337,14 +352,15 @@ module powerbi.visuals {
             var objectName = options.objectName;
 
             switch (objectName) {
-                case 'initialzoom':
+                case 'zoom':
                     var properties: VisualObjectInstance = {
                         objectName: objectName,
-                        displayName: 'Initial Zoom',
+                        displayName: 'Zoom',
                         selector: null,
                         properties: {
                             start: this.GetProperty(objectName, 'start', this.xMin),
-                            end: this.GetProperty(objectName, 'end', this.xMax)
+                            end: this.GetProperty(objectName, 'end', this.xMax),
+                            maxZoomLevel: this.GetProperty(objectName, 'maxZoomLevel', AreaZoomChart.MAX_ZOOM_LEVEL)
                         }
                     };
                     enumeration.pushInstance(properties);
