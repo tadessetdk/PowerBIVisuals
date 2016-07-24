@@ -35,8 +35,8 @@ module powerbi.visuals {
                 }
             }],
             objects: {
-                zoom: {
-                    displayName: 'Zoom',
+                zoomproperties: {
+                    displayName: 'zoomproperties',
                     properties: {
                         start: {
                             description: 'Zoom start',
@@ -109,18 +109,35 @@ module powerbi.visuals {
                             displayName: 'Text color'
                         }
                     }
+                },
+                trackerpropeties: {
+                    displayName: 'Tracker',
+                    properties: {
+                        textColor: {
+                            description: 'Text color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Text color'
+                        },
+                        lineColor: {
+                            description: 'Line color',
+                            type: { fill: { solid: { color: true } } },
+                            displayName: 'Line color'
+                        }
+                    }
                 }
             }
         };
 
         private static YearFormat = d3.time.format('%Y-%m-%d');
-        private static AREA_FILL_COLOR = 'steelblue';
+        private static AREA_FILL_COLOR = '#4682b4';
         private static LINE_COLOR = '#315a7d';
         private static AXIS_FONT_SIZE = '10';
         private static AXIS_TEXT_COLOR = '#777';
         private static AXIS_LINE_COLOR = '#CCC';
         private static FOOTER_TEXT_COLOR = '#333';
         private static FOOTER_FONT_SIZE = '12';
+        private static TRACKET_LINE_COLOR = '#4682b4';
+        private static TRACKET_TEXT_COLOR = '#ff5000';
         private static MARGIN = { top: 0, right: 60, bottom: 60, left: 0 };
         private static MAX_ZOOM_LEVEL = 1024;
 
@@ -141,6 +158,9 @@ module powerbi.visuals {
         private xMax;
         private area;
         private line;
+        private data;
+        private zoom;
+        private tHandle;
 
         public init(options: VisualInitOptions): void {
             var element = options.element;
@@ -151,7 +171,6 @@ module powerbi.visuals {
                 .attr('class', AreaZoomChart);
         }
 
-        private data;
         public update(options: VisualUpdateOptions) {
             if (!options.dataViews || !options.dataViews[0]) return;
             
@@ -179,15 +198,16 @@ module powerbi.visuals {
             var categories = dataView.categorical.categories;
             return categories[0].values.map(function(d, i) {
                 return [d, categories[1].values[i]]
-            });
+            })
+            .sort((x,y)=> x[0]-y[0]);
         }
 
         private render(data){
             this.mainGroup = this.svg.select('g.main-group');;
             this.createScales(data);
-            this.createClip();
             this.createPaths();
             this.createAxes();
+            this.createTracker();
             this.enableZoom();
             this.bindData(data);
             this.draw();
@@ -196,15 +216,18 @@ module powerbi.visuals {
         private createScales(data){
             this.xMin = d3.min(data, d=> d[0]);
             this.xMax = d3.max(data, d=> d[0]);
-            var zoomStart = this.GetProperty('zoom', 'start', this.xMin);
-            var zoomEnd = this.GetProperty('zoom', 'start', this.xMax);
-            this.x = d3.time.scale().range([0, this.width]);
+            var zoomStart = this.GetProperty('zoomproperties', 'start', this.xMin);
+            var zoomEnd = this.GetProperty('zoomproperties', 'start', this.xMax);
+            this.x = d3.time.scale().range([0, this.width]).nice().clamp(true);
             this.x.domain([zoomStart, zoomEnd]);
-            this.y = d3.scale.linear().range([this.height, 0]);
+            this.y = d3.scale.linear().range([this.height, 0]).clamp(true);
             this.y.domain([0, d3.max(data, d=> d[1])]);
         }
 
         private createPaths(){
+            //add clip
+            this.createClip();
+
             //area
             var x = this.x, y = this.y;
 
@@ -259,10 +282,9 @@ module powerbi.visuals {
                 .attr('class', 'x axis')
                 .attr('transform', 'translate(0,' + this.height + ')');
         }
-
-        private zoom;
+        
         private enableZoom(){
-            var maxZoomLevel = this.GetProperty('zoom', 'maxZoomLevel', AreaZoomChart.MAX_ZOOM_LEVEL);
+            var maxZoomLevel = this.GetProperty('zoomproperties', 'maxZoomLevel', AreaZoomChart.MAX_ZOOM_LEVEL);
             var zoom = this.zoom = d3.behavior.zoom()
                         .x(this.x)
                         .y(this.y)
@@ -299,6 +321,79 @@ module powerbi.visuals {
             var domainRange = this.x.domain().map(formatter);
             mainGroup.select('text.footer-text').text(domainRange.join(' to '));
             this.setStyles();
+        }
+
+        private createTracker(){
+            var line = this.mainGroup
+                .append('line')
+                .style('fill', 'none')
+                .style('stroke', this.GetProperty('trackerpropeties', 'lineColor', AreaZoomChart.TRACKET_LINE_COLOR))
+                .style('stroke-dasharray', '3, 2')
+                .attr('y1', 0)
+                .attr('y2', this.height);
+
+            var text = this.mainGroup
+                .append('text')
+                .style('fill', this.GetProperty('trackerpropeties', 'textColor', AreaZoomChart.TRACKET_TEXT_COLOR));
+                
+            var self = this;
+            this.mainGroup.on('mousemove', function() {
+                self.displayTrackerText(line, text, d3.mouse(this)[0]);        
+            });
+        }
+
+        private displayTrackerText(line, text, px){
+            text.text('');
+            if(px >= 0 && px <= this.width){
+                window.clearTimeout(this.tHandle);
+                line.attr('x1', px).attr('x2', px);
+                this.tHandle = window.setTimeout(()=>{
+                    var xVal = this.x.invert(px);
+                    var filteredData = this.data.filter(d=> d[0] === xVal);
+                    var yVal = filteredData.length && filteredData[0][1] || this.getTrackerValue(px);
+                    text
+                        .attr('x', px + 2)
+                        .attr('y', this.y(yVal))
+                        .text(yVal);
+                    this.clearTrackerTimeout();
+                }, 200);
+            } else {
+               this.clearTrackerTimeout();
+            }
+        }
+
+        private clearTrackerTimeout(){
+             this.tHandle && window.clearTimeout(this.tHandle);
+             this.tHandle = 0;
+        }
+
+        private getTrackerValue(px){
+            var len = this.data.length;
+            var left = 0, right = len - 1;
+            var mid = Math.floor(len / 2);
+            while(mid > 0 && mid < len){
+                var x = this.data[mid][0];
+                var pxMid = this.x(x);
+                if(px === pxMid) return this.data[mid][1];
+                else if(px < pxMid) right = mid - 1;
+                else left = mid + 1;
+
+                if(mid > 0){
+                    var pxLeft = this.x(this.data[mid - 1][0]);
+                    if(pxLeft <= px && px < pxMid) {
+                        return (Math.abs(px - pxLeft) < Math.abs(px-pxMid)) && this.data[mid - 1][1] || this.data[mid][1];
+                    }
+                } 
+                if (mid < len){
+                    var pxRight = this.x(this.data[mid + 1][0]);
+                    if(pxMid <= px && px < pxRight) {
+                        return (Math.abs(px - pxRight) < Math.abs(px-pxMid)) && this.data[mid + 1][1] || this.data[mid][1];
+                    }
+                }
+                mid = Math.floor(left + (right - left)/2);
+            }
+
+            return '';
         }
 
         private setStyles(){
@@ -352,7 +447,7 @@ module powerbi.visuals {
             var objectName = options.objectName;
 
             switch (objectName) {
-                case 'zoom':
+                case 'zoomproperties':
                     var properties: VisualObjectInstance = {
                         objectName: objectName,
                         displayName: 'Zoom',
@@ -402,6 +497,19 @@ module powerbi.visuals {
                         properties: {
                             fontSize: this.GetProperty(objectName, 'fontSize', AreaZoomChart.FOOTER_FONT_SIZE),
                             textColor: this.GetProperty(objectName, 'textColor', AreaZoomChart.FOOTER_TEXT_COLOR)
+                        }
+                    };
+                    enumeration.pushInstance(properties);
+                    break;
+
+                case 'trackerpropeties':
+                    var properties: VisualObjectInstance = {
+                        objectName: objectName,
+                        displayName: 'Tracker',
+                        selector: null,
+                        properties: {
+                            textColor: this.GetProperty(objectName, 'textColor', AreaZoomChart.TRACKET_TEXT_COLOR),
+                            lineColor: this.GetProperty(objectName, 'lineColor', AreaZoomChart.TRACKET_LINE_COLOR)
                         }
                     };
                     enumeration.pushInstance(properties);
