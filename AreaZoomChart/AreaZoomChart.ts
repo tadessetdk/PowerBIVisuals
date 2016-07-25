@@ -113,6 +113,11 @@ module powerbi.visuals {
                 trackerpropeties: {
                     displayName: 'Tracker',
                     properties: {
+                        fontSize: {
+                            description: 'Font size',
+                            type: { formatting: { fontSize: true } },
+                            displayName: 'Font size'
+                        },
                         textColor: {
                             description: 'Text color',
                             type: { fill: { solid: { color: true } } },
@@ -128,7 +133,8 @@ module powerbi.visuals {
             }
         };
 
-        private static YearFormat = d3.time.format('%Y-%m-%d');
+        private static DateFormat1 = d3.time.format('%Y-%m-%d');
+        private static DateFormat2 = d3.time.format('%d/%m/%Y %I:%M%p');
         private static AREA_FILL_COLOR = '#4682b4';
         private static LINE_COLOR = '#315a7d';
         private static AXIS_FONT_SIZE = '10';
@@ -136,9 +142,10 @@ module powerbi.visuals {
         private static AXIS_LINE_COLOR = '#CCC';
         private static FOOTER_TEXT_COLOR = '#333';
         private static FOOTER_FONT_SIZE = '12';
-        private static TRACKET_LINE_COLOR = '#4682b4';
+        private static TRACKET_LINE_COLOR = '#ff611a';
         private static TRACKET_TEXT_COLOR = '#ff5000';
-        private static MARGIN = { top: 0, right: 60, bottom: 60, left: 0 };
+        private static TRACKET_FONT_SIZE = '14';
+        private static MARGIN = { top: 20, right: 60, bottom: 60, left: 20 };
         private static MAX_ZOOM_LEVEL = 1024;
 
         private selectionManager: SelectionManager;
@@ -168,7 +175,7 @@ module powerbi.visuals {
             this.rootElement = d3.select(element.get(0));
             this.svg = this.rootElement
                 .append('svg')
-                .attr('class', AreaZoomChart);
+                .attr('class', 'AreaZoomChart');
         }
 
         public update(options: VisualUpdateOptions) {
@@ -190,8 +197,8 @@ module powerbi.visuals {
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
             this.dataView = options.dataViews[0];
-            var data = this.data = AreaZoomChart.converter(this.dataView);
-            this.render(data);
+            this.data = AreaZoomChart.converter(this.dataView);
+            this.render();
         }
 
         private static converter(dataView: DataView){
@@ -202,23 +209,25 @@ module powerbi.visuals {
             .sort((x,y)=> x[0]-y[0]);
         }
 
-        private render(data){
+        private render(){
             this.mainGroup = this.svg.select('g.main-group');;
-            this.createScales(data);
+            this.createScales();
             this.createPaths();
             this.createAxes();
             this.createTracker();
             this.enableZoom();
-            this.bindData(data);
+            this.bindData();
             this.draw();
         }
 
-        private createScales(data){
+        private createScales(){
+            var data = this.data;
             this.xMin = d3.min(data, d=> d[0]);
             this.xMax = d3.max(data, d=> d[0]);
             var zoomStart = this.GetProperty('zoomproperties', 'start', this.xMin);
             var zoomEnd = this.GetProperty('zoomproperties', 'start', this.xMax);
-            this.x = d3.time.scale().range([0, this.width]).nice().clamp(true);
+            var isDateTimeSeries = data[0][0] instanceof Date;
+            this.x = (isDateTimeSeries && d3.time.scale() || d3.scale.linear()).range([0, this.width]).nice().clamp(true);
             this.x.domain([zoomStart, zoomEnd]);
             this.y = d3.scale.linear().range([this.height, 0]).clamp(true);
             this.y.domain([0, d3.max(data, d=> d[1])]);
@@ -298,18 +307,24 @@ module powerbi.visuals {
                 .call(zoom);
 				
             this.mainGroup.append('text')
-                .attr('y', this.height + 50)
+                .attr('y', this.height + 48)
                 .attr('class', 'footer-text');
         }
 
-        private bindData(data){
-            ['area','line'].forEach(a=> this.mainGroup.select('path.' + a).data([data]));
+        private bindData(){
+            ['area','line'].forEach(a=> this.mainGroup.select('path.' + a).data([this.data]));
         }
 
+        private lastTr;
         private draw(){
             var x = this.x.domain();
-            var filteredData = this.data.filter(d=>d[0]>=x[0] && d[0]<=x[1]);
-            var yMax = d3.max(filteredData, d=>d[1]);
+            if(this.x(x[0]) === this.x(x[1])) {
+                this.lastTr && this.zoom.translate(this.lastTr);
+            }
+            this.lastTr = this.zoom.translate();
+            x = this.x.domain();
+            var fdata = this.data.filter(d=> d[0] >= x[0] && d[0] <= x[1]);
+            var yMax = d3.max(fdata, d=> d[1]);
             this.y.domain([0, yMax]);
             
             var mainGroup = this.mainGroup;
@@ -317,9 +332,10 @@ module powerbi.visuals {
             mainGroup.select('g.y.axis').call(this.yAxis);
             mainGroup.select('path.area').attr('d', this.area);
             mainGroup.select('path.line').attr('d', this.line);
-            var formatter = (this.x.domain()[0] instanceof Date) && AreaZoomChart.YearFormat || (d=> d);
+            var formatter = (this.x.domain()[0] instanceof Date) && AreaZoomChart.DateFormat1 || (d=> d);
             var domainRange = this.x.domain().map(formatter);
             mainGroup.select('text.footer-text').text(domainRange.join(' to '));
+            mainGroup.select('text.tracker').text('');
             this.setStyles();
         }
 
@@ -334,6 +350,8 @@ module powerbi.visuals {
 
             var text = this.mainGroup
                 .append('text')
+                .attr('class', 'tracker')
+                .style('font-size', this.GetProperty('trackerpropeties', 'fontSize', AreaZoomChart.TRACKET_FONT_SIZE))
                 .style('fill', this.GetProperty('trackerpropeties', 'textColor', AreaZoomChart.TRACKET_TEXT_COLOR));
                 
             var self = this;
@@ -343,23 +361,44 @@ module powerbi.visuals {
         }
 
         private displayTrackerText(line, text, px){
-            text.text('');
+            text.html('');
             if(px >= 0 && px <= this.width){
-                window.clearTimeout(this.tHandle);
+                this.clearTrackerTimeout();
                 line.attr('x1', px).attr('x2', px);
                 this.tHandle = window.setTimeout(()=>{
                     var xVal = this.x.invert(px);
                     var filteredData = this.data.filter(d=> d[0] === xVal);
-                    var yVal = filteredData.length && filteredData[0][1] || this.getTrackerValue(px);
-                    text
-                        .attr('x', px + 2)
-                        .attr('y', this.y(yVal))
-                        .text(yVal);
+                    var dVal = filteredData.length && filteredData[0] || this.getTrackerValue(px);
+                    this.updateTrackerText(dVal, px, text);
                     this.clearTrackerTimeout();
                 }, 200);
             } else {
                this.clearTrackerTimeout();
             }
+        }
+
+        private updateTrackerText(dVal, px, text){
+            if(!dVal) return;
+           
+            var self = this;
+            var formattedX = (dVal[0] instanceof Date) && AreaZoomChart.DateFormat2(dVal[0]) || dVal[0];
+            var span1 = text.append('tspan').text(dVal[1]);
+            var span2 = text.append('tspan').text(formattedX);
+
+            span2.each(function(){
+                px += 2;
+                var box = this.getBBox();
+                var tWidth = box.width;
+                var diff = px + tWidth - self.width;
+                var x = diff > 0 && (px - diff) || px;
+                span1.attr('x', x);
+                span2.attr('x', x);
+           
+                var py = self.y(dVal[1]) - 8;
+                var tHeight = box.height;
+                span1.attr('y', py);
+                span2.attr('y', py + tHeight + 4);
+            });
         }
 
         private clearTrackerTimeout(){
@@ -374,26 +413,26 @@ module powerbi.visuals {
             while(mid > 0 && mid < len){
                 var x = this.data[mid][0];
                 var pxMid = this.x(x);
-                if(px === pxMid) return this.data[mid][1];
+                if(px === pxMid) return this.data[mid];
                 else if(px < pxMid) right = mid - 1;
                 else left = mid + 1;
 
                 if(mid > 0){
                     var pxLeft = this.x(this.data[mid - 1][0]);
                     if(pxLeft <= px && px < pxMid) {
-                        return (Math.abs(px - pxLeft) < Math.abs(px-pxMid)) && this.data[mid - 1][1] || this.data[mid][1];
+                        return this.data[mid - 1];
                     }
                 } 
-                if (mid < len){
+                if (mid < len - 1){
                     var pxRight = this.x(this.data[mid + 1][0]);
                     if(pxMid <= px && px < pxRight) {
-                        return (Math.abs(px - pxRight) < Math.abs(px-pxMid)) && this.data[mid + 1][1] || this.data[mid][1];
+                        return this.data[mid];
                     }
                 }
                 mid = Math.floor(left + (right - left)/2);
             }
 
-            return '';
+            return null;
         }
 
         private setStyles(){
@@ -508,6 +547,7 @@ module powerbi.visuals {
                         displayName: 'Tracker',
                         selector: null,
                         properties: {
+                            fontSize: this.GetProperty(objectName, 'fontSize', AreaZoomChart.TRACKET_FONT_SIZE),
                             textColor: this.GetProperty(objectName, 'textColor', AreaZoomChart.TRACKET_TEXT_COLOR),
                             lineColor: this.GetProperty(objectName, 'lineColor', AreaZoomChart.TRACKET_LINE_COLOR)
                         }
