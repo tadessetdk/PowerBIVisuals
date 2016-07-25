@@ -386,11 +386,10 @@ module powerbi.visuals {
             var span2 = text.append('tspan').text(formattedX);
 
             span2.each(function(){
-                px += 2;
                 var box = this.getBBox();
                 var tWidth = box.width;
                 var diff = px + tWidth - self.width;
-                var x = diff > 0 && (px - diff) || px;
+                var x = diff > 0 && (px - tWidth - 2) || (px + 2);
                 span1.attr('x', x);
                 span2.attr('x', x);
            
