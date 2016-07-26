@@ -1,0 +1,127 @@
+{
+    dataRoles: [
+        {
+            name: 'Category',
+            kind: VisualDataRoleKind.Grouping,
+            displayName: 'Category',
+        }, {
+            name: 'Series',
+            kind: VisualDataRoleKind.Grouping,
+            displayName: 'Series',
+        }, {
+            name: 'Value',
+            displayName: 'Values',
+            kind: VisualDataRoleKind.Measure,
+            requiredTypes: [{ numeric: true }]
+        },{
+            name: 'SortBy',
+            kind: VisualDataRoleKind.Measure,
+            displayName: 'Sort Values By',
+        }
+    ],
+    dataViewMappings: [{
+        conditions: [
+            { 'Category': { max: 1 }, 'Series': { max: 1 }, 'Value': { max: 1 }, 'SortBy': { max: 1 } }
+        ], 
+        categorical: {
+            categories: {
+                for: { in: 'Category' },
+                dataReductionAlgorithm: { top: {} }
+            },
+            values: {
+                group: {
+                    by: 'Series',
+                    select: [
+                        { bind: { to: 'Value' } },
+                        { bind: { to: 'SortBy' } },
+                    ],
+                    dataReductionAlgorithm: { top: { } }
+                }
+            },
+        }
+    }],
+    drilldown: { roles: ['Category'] },
+    objects: {
+        general: {
+            displayName: data.createDisplayNameGetter('Visual_General'),
+            properties: {
+                formatString: {
+                    type: { formatting: { formatString: true } },
+                },
+            },
+        },
+        axisproperties: {
+            displayName: 'Axis',
+            properties: {
+                fontSize: {
+                    description: 'Specify the font size of the axis text.',
+                    type: { formatting: { fontSize: true } },
+                    displayName: 'Text Size'
+                },
+                textColor: {
+                    description: 'Specify the font color of the axis text.',
+                    type: { fill: { solid: { color: true } } },
+                    displayName: 'Text Color'
+                },
+                lineColor: {
+                    description: 'Specify the color of the axes line.',
+                    type: { fill: { solid: { color: true } } },
+                    displayName: 'Line Color'
+                }
+            }
+        },
+        secondyaxisproperties: {
+            displayName: '2nd Y Axis',
+            properties: {
+                lineColor: {
+                    description: 'Specify the color of the line.',
+                    type: { fill: { solid: { color: true } } },
+                    displayName: 'Line Color'
+                }
+            }
+        },
+        barproperties: {
+            displayName: 'Bar',
+            properties: {
+                fontSize: {
+                    description: 'Specify the font size of the bar text.',
+                    type: { formatting: { fontSize: true } },
+                    displayName: 'Text Size'
+                },
+                textColor: {
+                    description: 'Specify the font color of the bar text.',
+                    type: { fill: { solid: { color: true } } },
+                    displayName: 'Text Color'
+                },
+                fill: {
+                    type: { fill: { solid: { color: true } } }
+                },
+            }
+        },
+        legendproperties: {
+            displayName: 'Legend',
+            properties: {
+                fontSize: {
+                    description: 'Specify the font size of the legend text.',
+                    type: { formatting: { fontSize: true } },
+                    displayName: 'Text Size'
+                },
+                textColor: {
+                    description: 'Specify the font color of the legend text.',
+                    type: { fill: { solid: { color: true } } },
+                    displayName: 'Text Color'
+                }
+            }
+        },
+        valuesortproperties: {
+            displayName: 'Value Sort',
+            properties: {
+                valueSortOrderDefault: {
+                    description: 'Specify the default sort order for the values.',
+                    type: { enumeration: SortOrderEnum.type },
+                    displayName: 'Order'
+                }
+            }
+        },
+    }
+}

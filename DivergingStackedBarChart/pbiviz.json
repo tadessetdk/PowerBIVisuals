@@ -1,0 +1,23 @@
+{
+    "visual": {
+        "name": "DivergingStackedBarChart",
+        "displayName": "DivergingStackedBarChart",
+        "guid": "PBI_CV_966CD51A_5BE3_4EE4_9819_B73DE8D0AC48",
+        "visualClassName": "DivergingStackedBarChart",
+        "version": "1.0.0",
+        "description": "",
+        "supportUrl": "",
+       "gitHubUrl": "https://github.com/Microsoft/PowerBI-visuals/"
+    },
+    "apiVersion": "1.1.0",
+    "author": {
+        "name": "Tadesse Feyissa",
+        "email": "tadessedk@gmail.com"
+    },
+    "assets": {
+        "icon": "assets/icon.png"
+    },
+    "externalJS": [],
+    "style": "style/visual.less",
+    "capabilities": "capabilities.json"
+}
