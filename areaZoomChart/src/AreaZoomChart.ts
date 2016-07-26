@@ -1,138 +1,9 @@
+module powerbi.extensibility.visual {
+    declare type d3 = any;
+    declare var d3: d3;
 
-module powerbi.visuals {
-    import SelectionManager = utility.SelectionManager;
-    
     export class AreaZoomChart implements IVisual {
    
-        public static capabilities: VisualCapabilities = {
-            dataRoles: [
-                {
-                    name: 'Category',
-                    displayName: 'Category',
-                    kind: VisualDataRoleKind.Grouping
-                },
-                {
-                    name: 'Value',
-                    displayName: 'Value',
-                    kind: VisualDataRoleKind.GroupingOrMeasure,
-                }
-            ],
-            dataViewMappings: [{
-                conditions: [
-                    {  'Category': { max: 1 }, 'Value': { max: 1 }}
-                ], 
-                categorical: {
-                    categories: {
-                         for: { in: 'Category' },
-                         dataReductionAlgorithm: { top: { count: 10000 } }
-                    },
-                    values: {
-                        select: [
-                            { bind: { to: 'Value' } }
-                        ],
-						dataReductionAlgorithm: { top: { count: 10000 } }
-                    }
-                }
-            }],
-            objects: {
-                zoomproperties: {
-                    displayName: 'zoomproperties',
-                    properties: {
-                        start: {
-                            description: 'Zoom start',
-                            type: { numeric: true },
-                            displayName: 'Zoom start'
-                        },
-                        end: {
-                            description: 'Zoom end',
-                            type: { numeric: true },
-                            displayName: 'Zoom end'
-                        },
-                        maxZoomLevel: {
-                            description: 'Max Zoom Level',
-                            type: { numeric: true },
-                            displayName: 'Max Zoom Level'
-                        }
-                    }
-                },
-                areaproperties: {
-                    displayName: 'Area',
-                    properties: {
-                        fillColor: {
-                            description: 'Fill color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Fill color'
-                        },
-                        lineColor: {
-                            description: 'Line color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Line color'
-                        }
-                    }
-                },
-                axisproperties: {
-                    displayName: 'Axis',
-                    properties: {
-                        fontSize: {
-                            description: 'Font size',
-                            type: { formatting: { fontSize: true } },
-                            displayName: 'Font size'
-                        },
-                        textColor: {
-                            description: 'Text color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Text color'
-                        },
-                        xAxisLineColor: {
-                            description: 'X Axis Line color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'X Axis Line color'
-                        },
-                        yAxisLineColor: {
-                            description: 'Y Axis Line color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Y Axis Line color'
-                        }
-                    }
-                },
-                footertextproperties: {
-                    displayName: 'Footer',
-                    properties: {
-                        fontSize: {
-                            description: 'Font size',
-                            type: { formatting: { fontSize: true } },
-                            displayName: 'Font size'
-                        },
-                        textColor: {
-                            description: 'Text color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Text color'
-                        }
-                    }
-                },
-                trackerpropeties: {
-                    displayName: 'Tracker',
-                    properties: {
-                        fontSize: {
-                            description: 'Font size',
-                            type: { formatting: { fontSize: true } },
-                            displayName: 'Font size'
-                        },
-                        textColor: {
-                            description: 'Text color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Text color'
-                        },
-                        lineColor: {
-                            description: 'Line color',
-                            type: { fill: { solid: { color: true } } },
-                            displayName: 'Line color'
-                        }
-                    }
-                }
-            }
-        };
-
         private static DateFormat1 = d3.time.format('%Y-%m-%d');
         private static DateFormat2 = d3.time.format('%d/%m/%Y %I:%M%p');
         private static AREA_FILL_COLOR = '#4682b4';
@@ -148,11 +19,11 @@ module powerbi.visuals {
         private static MARGIN = { top: 20, right: 60, bottom: 60, left: 20 };
         private static MAX_ZOOM_LEVEL = 1024;
 
-        private selectionManager: SelectionManager;
+        private selectionManager: ISelectionManager;
         private dataView: DataView;
 
-        private svg: D3.Selection;
-        private rootElement: D3.Selection;
+        private svg;
+        private rootElement;
 
         private mainGroup;
         private width;
@@ -169,10 +40,10 @@ module powerbi.visuals {
         private zoom;
         private tHandle;
 
-        public init(options: VisualInitOptions): void {
-            var element = options.element;
-            this.selectionManager = new SelectionManager({ hostServices: options.host });
-            this.rootElement = d3.select(element.get(0));
+        constructor(options: VisualConstructorOptions) {
+       	    var element = options.element;
+            this.selectionManager = options.host.createSelectionManager();
+            this.rootElement = d3.select(element);
             this.svg = this.rootElement
                 .append('svg')
                 .attr('class', 'AreaZoomChart');
@@ -385,18 +256,16 @@ module powerbi.visuals {
             var span1 = text.append('tspan').text(dVal[1]);
             var span2 = text.append('tspan').text(formattedX);
 
-            span2.each(function(){
+            text.each(function(){
                 var box = this.getBBox();
-                var tWidth = box.width;
-                var diff = px + tWidth - self.width;
-                var x = diff > 0 && (px - tWidth - 2) || (px + 2);
+                var diff = px + box.width - self.width;
+                var x = diff > 0 ? (px - box.width/4) : (px + 4);
                 span1.attr('x', x);
                 span2.attr('x', x);
            
                 var py = self.y(dVal[1]) - 8;
-                var tHeight = box.height;
                 span1.attr('y', py);
-                span2.attr('y', py + tHeight + 4);
+                span2.attr('y', py + box.height + 4);
             });
         }
 
@@ -481,7 +350,7 @@ module powerbi.visuals {
         }
 
         public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
-            var enumeration = new ObjectEnumerationBuilder();
+            var enumeration = [];
             var objectName = options.objectName;
 
             switch (objectName) {
@@ -496,7 +365,7 @@ module powerbi.visuals {
                             maxZoomLevel: this.GetProperty(objectName, 'maxZoomLevel', AreaZoomChart.MAX_ZOOM_LEVEL)
                         }
                     };
-                    enumeration.pushInstance(properties);
+                    enumeration.push(properties);
                     break;
 
                 case 'areaproperties':
@@ -509,7 +378,7 @@ module powerbi.visuals {
                             lineColor: this.GetProperty(objectName, 'lineColor', AreaZoomChart.LINE_COLOR)
                         }
                     };
-                    enumeration.pushInstance(properties);
+                    enumeration.push(properties);
                     break;
 
                 case 'axisproperties':
@@ -524,7 +393,7 @@ module powerbi.visuals {
                             yAxisLineColor: this.GetProperty(objectName, 'yAxisLineColor', AreaZoomChart.AXIS_LINE_COLOR)
                         }
                     };
-                    enumeration.pushInstance(properties);
+                    enumeration.push(properties);
                     break;
 
                 case 'footertextproperties':
@@ -537,7 +406,7 @@ module powerbi.visuals {
                             textColor: this.GetProperty(objectName, 'textColor', AreaZoomChart.FOOTER_TEXT_COLOR)
                         }
                     };
-                    enumeration.pushInstance(properties);
+                    enumeration.push(properties);
                     break;
 
                 case 'trackerpropeties':
@@ -551,11 +420,11 @@ module powerbi.visuals {
                             lineColor: this.GetProperty(objectName, 'lineColor', AreaZoomChart.TRACKET_LINE_COLOR)
                         }
                     };
-                    enumeration.pushInstance(properties);
+                    enumeration.push(properties);
                     break;
             }
             
-            return  enumeration.complete();
+            return  enumeration;
         }
         
         private GetProperty(groupPropertyValue: string, propertyValue: string, defaultValue) {

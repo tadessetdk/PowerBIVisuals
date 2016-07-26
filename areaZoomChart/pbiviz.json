@@ -1,0 +1,25 @@
+{
+    "visual": {
+        "name": "AreaZoomChart",
+        "displayName": "AreaZoomChart",
+        "guid": "PBI_CV_47B2FED1_0D1C_4B8B_A384_9F38A4D0A647",
+        "visualClassName": "AreaZoomChart",
+        "version": "1.0.0",
+        "description": "Chart that helps zoom in and out of large data.",
+        "supportUrl": "",
+        "gitHubUrl": "https://github.com/Microsoft/PowerBI-visuals/"
+    },
+    "apiVersion": "1.1.0",
+    "author": {
+        "name": "Tadesse Feyissa",
+        "email": "tadessedk@gmail.com"
+    },
+    "assets": {
+        "icon": "assets/icon.png",
+        "thumbnail": "assets/thumbnail.png",
+        "screenshot": "assets/screenshot.png"
+    },
+    "externalJS": [],
+    "style": "style/AreaZoomChart.less",
+    "capabilities": "capabilities.json"
+}

@@ -1,0 +1,128 @@
+{
+   "dataRoles": [
+        {
+            "name": "Category",
+            "displayName": "Category",
+            "kind": 0
+        },
+        {
+            "name": "Value",
+            "displayName": "Value",
+            "kind": 2
+        }
+    ],
+    "dataViewMappings": [{
+        "conditions": [
+            {  "Category": { "max": 1 }, "Value": { "max": 1 }}
+        ], 
+        "categorical": {
+            "categories": {
+                    "for": { "in": "Category" },
+                    "dataReductionAlgorithm": { "top": { "count": 10000 } }
+            },
+            "values": {
+                "select": [
+                    { "bind": { "to": "Value" } }
+                ],
+                "dataReductionAlgorithm": { "top": { "count": 10000 } }
+            }
+        }
+    }],
+    "objects": {
+        "zoomproperties": {
+            "displayName": "Zoom",
+            "properties": {
+                "start": {
+                    "description": "Zoom start",
+                    "type": { "numeric": true },
+                    "displayName": "Zoom start"
+                },
+                "end": {
+                    "description": "Zoom end",
+                    "type": { "numeric": true },
+                    "displayName": "Zoom end"
+                },
+                "maxZoomLevel": {
+                    "description": "Max Zoom Level",
+                    "type": { "numeric": true },
+                    "displayName": "Max Zoom Level"
+                }
+            }
+        },
+        "areaproperties": {
+            "displayName": "Area",
+            "properties": {
+                "fillColor": {
+                    "description": "Fill color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Fill color"
+                },
+                "lineColor": {
+                    "description": "Line color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Line color"
+                }
+            }
+        },
+        "axisproperties": {
+            "displayName": "Axis",
+            "properties": {
+                "fontSize": {
+                    "description": "Font size",
+                    "type": { "formatting": { "fontSize": true } },
+                    "displayName": "Font size"
+                },
+                "textColor": {
+                    "description": "Text color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Text color"
+                },
+                "xAxisLineColor": {
+                    "description": "X Axis Line color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "X Axis Line color"
+                },
+                "yAxisLineColor": {
+                    "description": "Y Axis Line color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Y Axis Line color"
+                }
+            }
+        },
+        "footertextproperties": {
+            "displayName": "Footer",
+            "properties": {
+                "fontSize": {
+                    "description": "Font size",
+                    "type": { "formatting": { "fontSize": true } },
+                    "displayName": "Font size"
+                },
+                "textColor": {
+                    "description": "Text color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Text color"
+                }
+            }
+        },
+        "trackerpropeties": {
+            "displayName": "Tracker",
+            "properties": {
+                "fontSize": {
+                    "description": "Font size",
+                    "type": { "formatting": { "fontSize": true } },
+                    "displayName": "Font size"
+                },
+                "textColor": {
+                    "description": "Text color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Text color"
+                },
+                "lineColor": {
+                    "description": "Line color",
+                    "type": { "fill": { "solid": { "color": true } } },
+                    "displayName": "Line color"
+                }
+            }
+        }
+    }
+}
