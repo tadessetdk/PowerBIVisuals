@@ -207,6 +207,7 @@ module powerbi.extensibility.visual {
             var domainRange = this.x.domain().map(formatter);
             mainGroup.select('text.footer-text').text(domainRange.join(' to '));
             mainGroup.select('text.tracker').text('');
+            mainGroup.select('rect.tracker').attr('x', -1000);
             this.setStyles();
         }
 
@@ -219,6 +220,12 @@ module powerbi.extensibility.visual {
                 .attr('y1', 0)
                 .attr('y2', this.height);
 
+            var rect = this.mainGroup.append('rect')
+                        .attr('class', 'tracker')
+                        .style('stroke', '#ddd')
+                        .style('stroke-width', '1px')
+                        .style('fill', '#FFF');
+
             var text = this.mainGroup
                 .append('text')
                 .attr('class', 'tracker')
@@ -227,12 +234,13 @@ module powerbi.extensibility.visual {
                 
             var self = this;
             this.mainGroup.on('mousemove', function() {
-                self.displayTrackerText(line, text, d3.mouse(this)[0]);        
+                self.displayTrackerText(line, rect, text, d3.mouse(this)[0]);        
             });
         }
 
-        private displayTrackerText(line, text, px){
+        private displayTrackerText(line, rect, text, px){
             text.html('');
+            rect.attr('x', -1000);
             if(px >= 0 && px <= this.width){
                 this.clearTrackerTimeout();
                 line.attr('x1', px).attr('x2', px);
@@ -240,7 +248,7 @@ module powerbi.extensibility.visual {
                     var xVal = this.x.invert(px);
                     var filteredData = this.data.filter(d=> d[0] === xVal);
                     var dVal = filteredData.length && filteredData[0] || this.getTrackerValue(px);
-                    this.updateTrackerText(dVal, px, text);
+                    this.updateTrackerText(dVal, px, rect, text);
                     this.clearTrackerTimeout();
                 }, 200);
             } else {
@@ -248,7 +256,7 @@ module powerbi.extensibility.visual {
             }
         }
 
-        private updateTrackerText(dVal, px, text){
+        private updateTrackerText(dVal, px, rect, text){
             if(!dVal) return;
            
             var self = this;
@@ -256,16 +264,22 @@ module powerbi.extensibility.visual {
             var span1 = text.append('tspan').text(dVal[1]);
             var span2 = text.append('tspan').text(formattedX);
 
-            text.each(function(){
+            span2.each(function(){
                 var box = this.getBBox();
                 var diff = px + box.width - self.width;
                 var x = diff > 0 ? (px - box.width/4) : (px + 4);
-                span1.attr('x', x);
-                span2.attr('x', x);
+                var xt = x + 8;
+                span1.attr('x', xt);
+                span2.attr('x', xt);
            
-                var py = self.y(dVal[1]) - 8;
+                var py = self.y(dVal[1]) + 32;
                 span1.attr('y', py);
-                span2.attr('y', py + box.height + 4);
+                span2.attr('y', py + box.height);
+
+                rect.attr('x', x);
+                rect.attr('y', py - box.height);
+                rect.attr('height', box.height * 2 + 8);
+                rect.attr('width', box.width);
             });
         }
 
