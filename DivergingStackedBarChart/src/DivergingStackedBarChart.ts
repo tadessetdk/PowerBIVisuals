@@ -4,26 +4,18 @@ module powerbi.extensibility.visual {
     declare type d3 = any;
     declare var d3: d3;
 
-    module SortOrderEnum {
-        export var ASCENDING: string = 'Ascending';
-        export var DESCENDING: string = 'Descending';
-
-        export var type: IEnumType = createEnumType([
-            { value: ASCENDING, displayName: ASCENDING },
-            { value: DESCENDING, displayName: DESCENDING }
-        ]);
-    }
-
     export class DivergingStackedBarChart implements IVisual {
    
+        private static ASCENDING: string = 'Ascending';
+        private static DESCENDING: string = 'Descending';
         private static VisualClassName = 'DivergingStackedBarChart';
         private static DefaultAxisFontSize = 9;
-        private static DefaultAxisTextColor = 'rgb(204, 204, 204)';
+        private static DefaultAxisTextColor = '#CCC';
         private static DefaultBarFontSize = 14;
         private static DefaultBarTextColor = '#FFF';
         private static DefaultLegendTextColor = 'rgb(69, 106, 118)';
         private static Default2ndYAxixColor = 'rgb(135, 144, 146)';
-        private static ValueDefaultSort = SortOrderEnum.ASCENDING;
+        private static ValueDefaultSort = DivergingStackedBarChart.ASCENDING;
         private static DurationAnimations = 200;
         private static MinOpacity = 0.3;
         private static MaxOpacity = 1;
@@ -56,9 +48,8 @@ module powerbi.extensibility.visual {
             var margin = DivergingStackedBarChart.MARGIN;
             var width = viewport.width - margin.left - margin.right;
             var height = viewport.height - margin.top - margin.bottom;
-
             if (width < 20 || height < 20) return; 
-
+ 
             this.svg.selectAll('g').remove();
             var mainGroup = this.svg
                 .attr('width', viewport.width)
@@ -68,28 +59,29 @@ module powerbi.extensibility.visual {
 
             this.dataView = options.dataViews[0];
             var sortOrder = this.GetProperty('valuesortproperties', 'valueSortOrderDefault', DivergingStackedBarChart.ValueDefaultSort);
-            var data = this.converter(this.dataView, sortOrder, this.colors);
+            var data = this.converter(this.dataView, sortOrder);
             this.render(data, mainGroup, width, height);
         }
 
-        private converter(dataView: DataView, sortOrder: string, colors){
-            var categoryDataView = dataView.categorical;
+        private converter(dataView: DataView, sortOrder: string){
+            var categoryDataView = dataView.categorical; 
             var categoryValues = categoryDataView.values.grouped();
             var levels = categoryDataView.categories[0].values;
             var categoryColumn = categoryDataView.categories[0];
-            var colorScale = colors.getNewColorScale();
-            var colorHelper = new ColorHelper(colors, { objectName: 'barproperties', propertyName: 'fill' });
             var self = this;
-            return categoryValues.map(function(v){
+            return categoryValues.map(v=> {
                 var sum = 0;
                 return {
                     seriesValue: v.name, 
                     identity: self.selectionIdBuilder.withSeries(categoryDataView.values, v).createSelectionId(), 
-                    values: v.values[0].values.map(function(v1, i){
+                    values: v.values[0].values.map((v1, i)=> {
                         var level = levels[i];
                         var objects = categoryColumn.objects && categoryColumn.objects[i];
-                        var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, level)
+                        var color = this.GetProperty('barproperties', level, this.colors[i].value);
+                        console.log(dataView.metadata)
+                        /*var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, level)
                                     || colorScale.getColor(level).value;
+                        */
                         sum += v1;
                         return { 
                             identity: self.selectionIdBuilder.withCategory(categoryColumn, i).createSelectionId(),
@@ -100,18 +92,18 @@ module powerbi.extensibility.visual {
                             percentage: 0
                         }
                     })
-                    .map(function(d){
+                    .map(d=>{
                         d.percentage = d.value*100/sum;
                         return d;
                     })
-                    .sort(function(x,y){ return (sortOrder === SortOrderEnum.ASCENDING) && (y.sortKey - x.sortKey) || (x.sortKey - y.sortKey) })
+                    .sort((x,y)=> (sortOrder === DivergingStackedBarChart.ASCENDING) && (y.sortKey - x.sortKey) || (x.sortKey - y.sortKey))
                 }
             });
         }
 
         private render(dataOptions, svg, width, height) {
-            var data = dataOptions.map(function(d) { return { identity: d.identity, values: d.values } });
-            var seriesValues = dataOptions.map(function(d) { return d.seriesValue });
+            var data = dataOptions.map(d=> { return { identity: d.identity, values: d.values } });
+            var seriesValues = dataOptions.map(d=>  { return d.seriesValue });
 
             var y = d3.scale.ordinal()
                 .rangeRoundBands([0, height], .3);
@@ -127,11 +119,11 @@ module powerbi.extensibility.visual {
                 .scale(y)
                 .orient('left')
 
-            data.forEach(function(d, index) {
+            data.forEach((d, index)=> {
                 var mid = Math.ceil(d.values.length/2);
 				var firstHalf = d.values.slice(0, mid); 
-                var x0 = -1 * (firstHalf.reduce(function(p,c){ return c.percentage + p }, 0) - 0.5 * firstHalf[firstHalf.length - 1].percentage); 
-                d.boxes = d.values.map(function(d1) { 
+                var x0 = -1 * (firstHalf.reduce((p,c)=> c.percentage + p, 0) - 0.5 * firstHalf[firstHalf.length - 1].percentage); 
+                d.boxes = d.values.map(d1=> { 
                     return {
                         seriesValue: seriesValues[index],
                         categoryValue: d1.categoryValue,
@@ -144,19 +136,14 @@ module powerbi.extensibility.visual {
                 });
             });
 
-            var min_val = d3.min(data, function(d) {
-                return d.boxes[0].x0;
-            });
-
-            var max_val = d3.max(data, function(d) {
-                return d.boxes[d.boxes.length - 1].x1;
-            });
+            var min_val = d3.min(data, d=> d.boxes[0].x0);
+            var max_val = d3.max(data, d=> d.boxes[d.boxes.length - 1].x1);
 
             x.domain([min_val, max_val]).nice();
-            y.domain(seriesValues.map(function(s){ return s }));
+            y.domain(seriesValues.map(s=> s ));
 
             var fontSize = this.GetProperty('axisproperties', 'fontSize', DivergingStackedBarChart.DefaultAxisFontSize).toString() + 'pt';
-            var textColor = this.GetPropertyColor('axisproperties', 'textColor', DivergingStackedBarChart.DefaultAxisTextColor);
+            var textColor = this.GetProperty('axisproperties', 'textColor', DivergingStackedBarChart.DefaultAxisTextColor);
 
             svg.append('g')
                 .attr('class', 'x axis')
@@ -174,32 +161,32 @@ module powerbi.extensibility.visual {
                 .data(data)
                 .enter().append('g')
                 .attr('class', 'bar')
-                .attr('transform', function(d) { return 'translate(0,' + y(d.boxes[0].seriesValue) + ')'; });
+                .attr('transform', d=>  'translate(0,' + y(d.boxes[0].seriesValue) + ')');
             
             this.setSelectHandler(vakken);
 
             var bars = vakken.selectAll('rect')
-                .data(function(d) { return d.boxes; })
+                .data(d=>  d.boxes)
                 .enter().append('g').attr('class', 'subbar');
 
             this.dataPoints = data[0].boxes;
 
             bars.append('rect')
                 .attr('height', y.rangeBand())
-                .attr('x', function(d) { return x(d.x0); })
-                .attr('width', function(d) { return x(d.x1) - x(d.x0); })
-                .style('fill', function(d) { return d.color; });
+                .attr('x', d=> x(d.x0))
+                .attr('width', d=> x(d.x1) - x(d.x0))
+                .style('fill', d=> d.color);
            
             var barFontSize = this.GetProperty('barproperties', 'fontSize', DivergingStackedBarChart.DefaultBarFontSize).toString() + 'pt';
-            var barTextColor = this.GetPropertyColor('barproperties', 'textColor', DivergingStackedBarChart.DefaultBarTextColor);
+            var barTextColor = this.GetProperty('barproperties', 'textColor', DivergingStackedBarChart.DefaultBarTextColor);
             
             bars.append('text')
-                .attr('x', function(d) { return x(d.x0); })
+                .attr('x', d=> x(d.x0))
                 .attr('y', y.rangeBand()/2)
                 .style('text-anchor', 'begin')
                 .style('font-size', barFontSize)
                 .style('fill', barTextColor)
-                .text(function(d) { return d.n !== 0 && (d.x1-d.x0)>3 ? d.n : '' });
+                .text(d=>  d.n !== 0 && (d.x1-d.x0)>3 ? d.n : '');
 
             vakken.insert('rect',':first-child')
                 .attr('height', y.rangeBand())
@@ -207,9 +194,9 @@ module powerbi.extensibility.visual {
                 .attr('width', width)
                 .attr('fill-opacity', '0.7')
                 .style('fill', '#F5F5F5')
-                .attr('class', function(d,index) { return index%2==0 ? 'even' : 'uneven'; });
+                .attr('class', (d,index)=> index%2==0 ? 'even' : 'uneven');
 
-            var yAxisColor = this.GetPropertyColor('secondyaxisproperties', 'lineColor', DivergingStackedBarChart.Default2ndYAxixColor);
+            var yAxisColor = this.GetProperty('secondyaxisproperties', 'lineColor', DivergingStackedBarChart.Default2ndYAxixColor);
             
             svg.append('g')
                 .attr('class', 'y2 axis')
@@ -226,16 +213,16 @@ module powerbi.extensibility.visual {
                 .data(data[0].boxes)
                 .enter().append('g')
                 .attr('class', 'legend')
-                .attr('transform', function(d, i) { return 'translate(' + i*100 + ',-55)'; });
+                .attr('transform', (d, i)=> 'translate(' + i*100 + ',-55)');
 
             legend.append('rect')
                 .attr('x', 0)
                 .attr('width', 18)
                 .attr('height', 18)
-                .style('fill', function(d){ return d.color });
+                .style('fill', d=> d.color);
 
             var legendFontSize = this.GetProperty('legendproperties', 'fontSize', DivergingStackedBarChart.DefaultAxisFontSize).toString() + 'pt';
-            var legendFontColor = this.GetPropertyColor('legendproperties', 'textColor', DivergingStackedBarChart.DefaultLegendTextColor);
+            var legendFontColor = this.GetProperty('legendproperties', 'textColor', DivergingStackedBarChart.DefaultLegendTextColor);
 
             legend.append('text')
                 .attr('x', 22)
@@ -244,7 +231,7 @@ module powerbi.extensibility.visual {
                 .style('text-anchor', 'begin')
                 .style('font-size', legendFontSize)
                 .style('fill', legendFontColor)
-                .text(function(d) { return d.categoryValue; });
+                .text(d=> d.categoryValue);
 
             var left = 0;
             legend
@@ -254,7 +241,7 @@ module powerbi.extensibility.visual {
                     return translate;
                 });
 
-            var axisColor = this.GetPropertyColor('axisproperties', 'lineColor', DivergingStackedBarChart.DefaultAxisTextColor);
+            var axisColor = this.GetProperty('axisproperties', 'lineColor', DivergingStackedBarChart.DefaultAxisTextColor);
 
             d3.selectAll('.axis path')
                 .style('fill', 'none')
@@ -291,8 +278,8 @@ module powerbi.extensibility.visual {
                         selector: null,
                         properties: {
                             fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBarChart.DefaultAxisFontSize),
-                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBarChart.DefaultAxisTextColor),
-                            lineColor: this.GetPropertyColor(objectName, 'lineColor', DivergingStackedBarChart.DefaultAxisTextColor),
+                            textColor: this.GetProperty(objectName, 'textColor', DivergingStackedBarChart.DefaultAxisTextColor),
+                            lineColor: this.GetProperty(objectName, 'lineColor', DivergingStackedBarChart.DefaultAxisTextColor),
                         }
                     };
                     enumeration.push(properties);
@@ -305,7 +292,7 @@ module powerbi.extensibility.visual {
                         selector: null,
                         properties: {
                             fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBarChart.DefaultAxisFontSize),
-                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBarChart.DefaultLegendTextColor)
+                            textColor: this.GetProperty(objectName, 'textColor', DivergingStackedBarChart.DefaultLegendTextColor)
                         }
                     };
                     enumeration.push(properties);
@@ -318,7 +305,7 @@ module powerbi.extensibility.visual {
                         selector: null,
                         properties: {
                             fontSize: this.GetProperty(objectName, 'fontSize', DivergingStackedBarChart.DefaultBarFontSize),
-                            textColor: this.GetPropertyColor(objectName, 'textColor', DivergingStackedBarChart.DefaultBarTextColor)
+                            textColor: this.GetProperty(objectName, 'textColor', DivergingStackedBarChart.DefaultBarTextColor)
                         }
                     };
                     enumeration.push(properties);
@@ -327,7 +314,7 @@ module powerbi.extensibility.visual {
                         var properties: VisualObjectInstance = {
                             objectName: objectName,
                             displayName: s.categoryValue,
-                            selector: ColorHelper.normalizeSelector(s.identity.getSelector()),
+                            selector: s.identity.getSelector(),
                             properties: {
                                 fill: { solid: { color: s.color } }
                             },
@@ -355,7 +342,7 @@ module powerbi.extensibility.visual {
                         displayName: '2nd Y Axis',
                         selector: null,
                         properties: {
-                            lineColor: this.GetPropertyColor(objectName, 'lineColor', DivergingStackedBarChart.Default2ndYAxixColor),
+                            lineColor: this.GetProperty(objectName, 'lineColor', DivergingStackedBarChart.Default2ndYAxixColor),
                         }
                     };
                     enumeration.push(properties);
@@ -387,42 +374,24 @@ module powerbi.extensibility.visual {
             if (!selectionIds || !selectionIds.length) return;
             
             selection
-                .filter((selectionData) => {
-                    return !selectionIds.some((selectionId: ISelectionId) => { return selectionData.identity === selectionId; });
-                })
+                .filter(selectionData => !selectionIds.some((selectionId: ISelectionId) => selectionData.identity === selectionId))
                 .transition()
                 .duration(DivergingStackedBarChart.DurationAnimations)
                 .style("fill-opacity", DivergingStackedBarChart.MinOpacity);
         }
 
-        private GetProperty<T>(groupPropertyValue: string, propertyValue: string, defaultValue: T) {
+        private GetProperty(groupPropertyName: string, propertyName: string, defaultValue) {
             if (this.dataView) {
                 var objects = this.dataView.metadata.objects;
                 if (objects) {
-                    var groupProperty = objects[groupPropertyValue];
+                    var groupProperty = objects[groupPropertyName];
                     if (groupProperty) {
-                        var object = <T>groupProperty[propertyValue];
+                        var object = groupProperty[propertyName];
                         if (object !== undefined)
-                            return object;
+                            return object.solid && object.solid.color || object;
                     }
                 }
             }
-            return defaultValue;
-        }
-
-        private GetPropertyColor(groupPropertyValue: string, propertyValue: string, defaultValue: string) {
-            if (this.dataView) {
-                var objects = this.dataView.metadata.objects;
-                if (objects) {
-                    var groupProperty = objects[groupPropertyValue];
-                    if (groupProperty) {
-                        var object = groupProperty[propertyValue];
-                        if (object !== undefined)
-                            return object.solid.color;
-                    }
-                }
-            }
-           
             return defaultValue;
         }
     }
