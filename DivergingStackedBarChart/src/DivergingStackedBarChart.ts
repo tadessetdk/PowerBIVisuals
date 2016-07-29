@@ -6,8 +6,7 @@ module powerbi.extensibility.visual {
 
     export class DivergingStackedBarChart implements IVisual {
    
-        private static ASCENDING: string = 'Ascending';
-        private static DESCENDING: string = 'Descending';
+        private static ASCENDING: string = "Ascending";
         private static VisualClassName = 'DivergingStackedBarChart';
         private static DefaultAxisFontSize = 9;
         private static DefaultAxisTextColor = '#CCC';
@@ -15,7 +14,6 @@ module powerbi.extensibility.visual {
         private static DefaultBarTextColor = '#FFF';
         private static DefaultLegendTextColor = 'rgb(69, 106, 118)';
         private static Default2ndYAxixColor = 'rgb(135, 144, 146)';
-        private static ValueDefaultSort = DivergingStackedBarChart.ASCENDING;
         private static DurationAnimations = 200;
         private static MinOpacity = 0.3;
         private static MaxOpacity = 1;
@@ -43,7 +41,7 @@ module powerbi.extensibility.visual {
 
         public update(options: VisualUpdateOptions) {
             if (!options.dataViews || !options.dataViews[0]) return; // or clear the view, display an error, etc.
-           
+            
             var viewport = options.viewport;
             var margin = DivergingStackedBarChart.MARGIN;
             var width = viewport.width - margin.left - margin.right;
@@ -58,17 +56,18 @@ module powerbi.extensibility.visual {
                 .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
             this.dataView = options.dataViews[0];
-            var sortOrder = this.GetProperty('valuesortproperties', 'valueSortOrderDefault', DivergingStackedBarChart.ValueDefaultSort);
-            var data = this.converter(this.dataView, sortOrder);
+            var sortAscending = this.GetProperty('valuesortproperties', 'valueSortDirection', DivergingStackedBarChart.ASCENDING) === DivergingStackedBarChart.ASCENDING;
+            var data = this.converter(sortAscending);
             this.render(data, mainGroup, width, height);
         }
 
-        private converter(dataView: DataView, sortOrder: string){
-            var categoryDataView = dataView.categorical; 
+        private converter(sortAscending: boolean){
+            var categoryDataView = this.dataView.categorical; 
             var categoryValues = categoryDataView.values.grouped();
             var levels = categoryDataView.categories[0].values;
             var categoryColumn = categoryDataView.categories[0];
             var self = this;
+            
             return categoryValues.map(v=> {
                 var sum = 0;
                 return {
@@ -78,10 +77,7 @@ module powerbi.extensibility.visual {
                         var level = levels[i];
                         var objects = categoryColumn.objects && categoryColumn.objects[i];
                         var color = this.GetProperty('barproperties', level, this.colors[i].value);
-                        console.log(dataView.metadata)
-                        /*var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, level)
-                                    || colorScale.getColor(level).value;
-                        */
+                        // var color = objects && colorHelper.getColorForSeriesValue(objects, categoryColumn.identityFields, level);
                         sum += v1;
                         return { 
                             identity: self.selectionIdBuilder.withCategory(categoryColumn, i).createSelectionId(),
@@ -96,7 +92,7 @@ module powerbi.extensibility.visual {
                         d.percentage = d.value*100/sum;
                         return d;
                     })
-                    .sort((x,y)=> (sortOrder === DivergingStackedBarChart.ASCENDING) && (y.sortKey - x.sortKey) || (x.sortKey - y.sortKey))
+                    .sort((x,y)=> sortAscending && (y.sortKey - x.sortKey) || (x.sortKey - y.sortKey))
                 }
             });
         }
@@ -267,7 +263,7 @@ module powerbi.extensibility.visual {
         // Usually it is a bind pass of what the property pane gave you, but sometimes you may want to do
         // validation and return other values/defaults
          public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstanceEnumeration {
-            var enumeration = [];
+            var instances = [];
             var objectName = options.objectName;
 
             switch (objectName) {
@@ -282,7 +278,7 @@ module powerbi.extensibility.visual {
                             lineColor: this.GetProperty(objectName, 'lineColor', DivergingStackedBarChart.DefaultAxisTextColor),
                         }
                     };
-                    enumeration.push(properties);
+                    instances.push(properties);
                     break;
 
                 case 'legendproperties':
@@ -295,7 +291,7 @@ module powerbi.extensibility.visual {
                             textColor: this.GetProperty(objectName, 'textColor', DivergingStackedBarChart.DefaultLegendTextColor)
                         }
                     };
-                    enumeration.push(properties);
+                    instances.push(properties);
                     break;
 
                 case 'barproperties':
@@ -308,7 +304,7 @@ module powerbi.extensibility.visual {
                             textColor: this.GetProperty(objectName, 'textColor', DivergingStackedBarChart.DefaultBarTextColor)
                         }
                     };
-                    enumeration.push(properties);
+                    instances.push(properties);
 
                     this.dataPoints.forEach(s => {
                         var properties: VisualObjectInstance = {
@@ -319,21 +315,21 @@ module powerbi.extensibility.visual {
                                 fill: { solid: { color: s.color } }
                             },
                         }
-                        enumeration.push(properties);
+                        instances.push(properties);
                     });
 
                     break;
 
-                case 'valuesortproperties':
+                     case 'valuesortproperties':
                     var properties: VisualObjectInstance = {
                         objectName: objectName,
-                        displayName: 'Value Sort',
+                        displayName: 'Sort Ascending',
                         selector: null,
                         properties: {
-                            valueSortOrderDefault: this.GetProperty(objectName, 'valueSortOrderDefault', DivergingStackedBarChart.ValueDefaultSort),
+                            valueSortDirection: this.GetProperty(objectName, 'valueSortDirection', DivergingStackedBarChart.ASCENDING),
                         }
                     };
-                    enumeration.push(properties);
+                    instances.push(properties);
                     break;
 
                 case 'secondyaxisproperties':
@@ -345,11 +341,11 @@ module powerbi.extensibility.visual {
                             lineColor: this.GetProperty(objectName, 'lineColor', DivergingStackedBarChart.Default2ndYAxixColor),
                         }
                     };
-                    enumeration.push(properties);
+                    instances.push(properties);
                     break;
             }
             
-            return  enumeration;
+            return  instances;
         }
 
         private setSelectHandler(selection): void {

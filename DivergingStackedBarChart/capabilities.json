@@ -174,9 +174,9 @@
 		"valuesortproperties": {
 			"displayName": "Value Sort",
 			"properties": {
-				"valueSortOrderDefault": {
+				"valueSortDirection": {
 					"description": "Specify the default sort order for the values.",
-					"displayName": "Order",
+					"displayName": "Sort",
 					"type": {
 						"enumeration": [ 
                             { 
