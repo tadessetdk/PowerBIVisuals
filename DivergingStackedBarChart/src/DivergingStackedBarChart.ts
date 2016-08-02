@@ -17,7 +17,7 @@ module powerbi.extensibility.visual {
         private static DurationAnimations = 200;
         private static MinOpacity = 0.3;
         private static MaxOpacity = 1;
-        private static MARGIN = { top: 60, right: 20, bottom: 20, left: 100 };
+        private static MARGIN = { top: 80, right: 20, bottom: 20, left: 100 };
             
         private svg;
         private rootElement;
@@ -27,6 +27,7 @@ module powerbi.extensibility.visual {
         private selectionManager: ISelectionManager;
         private dataView: DataView;
         private selectionIdBuilder: ISelectionIdBuilder;
+        private legendTopMargin: number;
 
         constructor(options: VisualConstructorOptions) {
             var element = options.element;
@@ -48,14 +49,20 @@ module powerbi.extensibility.visual {
             var height = viewport.height - margin.top - margin.bottom;
             if (width < 20 || height < 20) return; 
  
+            this.dataView = options.dataViews[0];
+            var legendFontSize = this.GetProperty('legendproperties', 'fontSize', DivergingStackedBarChart.DefaultAxisFontSize).toString();
+            legendFontSize = 1.33 * parseInt(legendFontSize);
+            var topMargin = DivergingStackedBarChart.MARGIN.top + legendFontSize;
+            this.legendTopMargin = topMargin/2 + legendFontSize/2 + 8;
+            this.legendTopMargin = isNaN(this.legendTopMargin) && 60 || this.legendTopMargin;
+            
             this.svg.selectAll('g').remove();
             var mainGroup = this.svg
                 .attr('width', viewport.width)
                 .attr('height', viewport.height)
             .append('g')
-                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+                .attr('transform', 'translate(' + margin.left + ',' + topMargin + ')');
 
-            this.dataView = options.dataViews[0];
             var sortAscending = this.GetProperty('valuesortproperties', 'valueSortDirection', DivergingStackedBarChart.ASCENDING) === DivergingStackedBarChart.ASCENDING;
             var data = this.converter(sortAscending);
             this.render(data, mainGroup, width, height);
@@ -209,7 +216,9 @@ module powerbi.extensibility.visual {
                 .data(data[0].boxes)
                 .enter().append('g')
                 .attr('class', 'legend')
-                .attr('transform', (d, i)=> 'translate(' + i*100 + ',-55)');
+                .attr('transform', (d, i)=> 'translate(' + i*100 + ',' + (-this.legendTopMargin) + ')');
+                console.log('translate(' + 100 + ',' + (-this.legendTopMargin) + ')');
+                
 
             legend.append('rect')
                 .attr('x', 0)
@@ -229,10 +238,10 @@ module powerbi.extensibility.visual {
                 .style('fill', legendFontColor)
                 .text(d=> d.categoryValue);
 
-            var left = 0;
+            var left = 0, self = this;
             legend
                 .attr('transform', function() { 
-                    var translate = 'translate(' + left + ',-55)';
+                    var translate = 'translate(' + left + ',' + (-self.legendTopMargin) + ')';
                     left += this.getBBox().width + 24;
                     return translate;
                 });
