@@ -224,7 +224,9 @@ module powerbi.extensibility.visual {
                         .attr('class', 'tracker')
                         .style('stroke', '#ddd')
                         .style('stroke-width', '1px')
-                        .style('fill', '#FFF');
+                        .style('fill', '#FFF')
+                        .attr('rx', '3')
+                        .attr('ry', '3');
 
             var text = this.mainGroup
                 .append('text')
@@ -262,25 +264,23 @@ module powerbi.extensibility.visual {
             var self = this;
             var formattedX = (dVal[0] instanceof Date) && AreaZoomChart.DateFormat2(dVal[0]) || dVal[0];
             var span1 = text.append('tspan').text(dVal[1]);
+            var w1 = span1.node().getBBox().width - 14;
             var span2 = text.append('tspan').text(formattedX);
+            var box = span2.node().getBBox();
+            var diff = px + box.width - w1 - self.width + 4;
+            var x = diff > 0 ? (px - box.width + w1 - 4) : (px + 4);
+            var xt = x + 6;
+            span1.attr('x', xt);
+            span2.attr('x', xt);
+        
+            var py = self.y(dVal[1]) + 32;
+            span1.attr('y', py);
+            span2.attr('y', py + box.height);
 
-            span2.each(function(){
-                var box = this.getBBox();
-                var diff = px + box.width - self.width;
-                var x = diff > 0 ? (px - box.width/4) : (px + 4);
-                var xt = x + 8;
-                span1.attr('x', xt);
-                span2.attr('x', xt);
-           
-                var py = self.y(dVal[1]) + 32;
-                span1.attr('y', py);
-                span2.attr('y', py + box.height);
-
-                rect.attr('x', x);
-                rect.attr('y', py - box.height);
-                rect.attr('height', box.height * 2 + 8);
-                rect.attr('width', box.width);
-            });
+            rect.attr('x', x);
+            rect.attr('y', py - box.height);
+            rect.attr('height', box.height * 2 + 8);
+            rect.attr('width', box.width - w1);
         }
 
         private clearTrackerTimeout(){
